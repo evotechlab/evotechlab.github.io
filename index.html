@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FieldCam</title>
+
+<style>
+:root{
+  --bg:#111;
+  --panel:#1c1c1c;
+  --border:#2a2a2a;
+  --accent:#d6a800;
+  --text:#eaeaea;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* Permetti scroll naturale */
+main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+/* Camera adattiva */
+#camera{
+  width:100%;
+  aspect-ratio:4/3;   /* 🔥 molto più stabile su mobile */
+  background:#000;
+  position:relative;
+}
+
+/* Preview area */
+#previewBar{
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  overflow-x:auto;
+  overflow-y:hidden;
+  display:flex;
+  gap:.6rem;
+  padding:.8rem;
+}
+
+/* Controls sempre visibili */
+.controls{
+  padding:1rem;
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  display:flex;
+  gap:1rem;
+}
+
+
+
+
+header{
+  padding:1rem;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  font-weight:600;
+  text-align:center;
+}
+
+/* =========================
+   MAIN LAYOUT
+========================= */
+
+main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+/* CAMERA */
+
+#camera{
+  flex:0 0 60%;
+  background:#000;
+  position:relative;
+}
+
+video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+/* ANTEPRIME */
+
+#previewBar{
+  flex:1;
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  overflow-x:auto;
+  overflow-y:hidden;
+  display:flex;
+  gap:.6rem;
+  padding:.8rem;
+  align-items:center;
+}
+
+.thumb{
+  height:80px;
+  aspect-ratio:4/3;
+  object-fit:cover;
+  border:1px solid var(--border);
+  border-radius:4px;
+  flex-shrink:0;
+}
+
+/* CONTROLS */
+
+.controls{
+  padding:1rem;
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  display:flex;
+  gap:1rem;
+}
+
+button{
+  flex:1;
+  padding:.8rem;
+  border:none;
+  font-weight:600;
+  cursor:pointer;
+  border-radius:4px;
+  font-size:.9rem;
+}
+
+button.primary{
+  background:var(--accent);
+  color:#000;
+}
+
+button.secondary{
+  background:#2a2a2a;
+  color:var(--text);
+  border:1px solid var(--border);
+}
+
+/* =========================
+   DESKTOP
+========================= */
+
+@media (min-width:1000px){
+
+  #camera{
+    flex:1;
+  }
+
+  #previewBar{
+    height:140px;
+    flex:none;
+  }
+
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  FieldCam – Dropbox Sync
+</header>
+
+<main>
+
+  <section id="camera">
+    <video id="video" autoplay playsinline></video>
+  </section>
+
+  <div id="previewBar"></div>
+
+  <div class="controls">
+    <button class="primary" id="shoot">Scatta</button>
+    <button class="secondary" onclick="uploadAll()">Invia</button>
+  </div>
+
+</main>
+
+<script>
+
+/* =========================
+   CONFIG
+========================= */
+
+const DROPBOX_APP_KEY = "8hvahtzab1ngyox";
+const DROPBOX_FOLDER = "";
+
+let shots = [];
+let accessToken = localStorage.getItem("db_access");
+let refreshToken = localStorage.getItem("db_refresh");
+
+const video = document.getElementById("video");
+const shoot = document.getElementById("shoot");
+const previewBar = document.getElementById("previewBar");
+
+/* =========================
+   CAMERA
+========================= */
+
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: "environment" }
+})
+.then(stream => {
+  video.srcObject = stream;
+})
+.catch(err => {
+  alert("Errore accesso camera: " + err);
+});
+
+/* =========================
+   SCATTA FOTO
+========================= */
+
+shoot.onclick = () => {
+
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0);
+
+  canvas.toBlob(blob => {
+
+    const shot = {
+      name: "fieldcam_" + Date.now() + ".jpg",
+      blob: blob
+    };
+
+    shots.push(shot);
+    addThumbnail(blob);
+
+  }, "image/jpeg", 0.9);
+};
+
+function addThumbnail(blob){
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(blob);
+  img.className = "thumb";
+  previewBar.appendChild(img);
+}
+
+/* =========================
+   PKCE UTILITIES
+========================= */
+
+function base64UrlEncode(arrayBuffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+async function sha256(plain) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  return await crypto.subtle.digest("SHA-256", data);
+}
+
+async function generatePKCE() {
+  const verifier = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = base64UrlEncode(await sha256(verifier));
+  localStorage.setItem("pkce_verifier", verifier);
+  return challenge;
+}
+
+/* =========================
+   LOGIN
+========================= */
+
+async function loginDropbox() {
+
+  const challenge = await generatePKCE();
+
+  const redirectUri = window.location.origin + window.location.pathname;
+
+  const authUrl =
+    "https://www.dropbox.com/oauth2/authorize" +
+    "?client_id=" + DROPBOX_APP_KEY +
+    "&response_type=code" +
+    "&code_challenge=" + challenge +
+    "&code_challenge_method=S256" +
+    "&token_access_type=offline" +
+    "&redirect_uri=" + encodeURIComponent(redirectUri);
+
+  window.location.href = authUrl;
+}
+
+/* =========================
+   HANDLE REDIRECT
+========================= */
+
+window.addEventListener("load", async () => {
+
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+
+  if(code){
+
+    const verifier = localStorage.getItem("pkce_verifier");
+    const redirectUri = window.location.origin + window.location.pathname;
+
+    const body = new URLSearchParams({
+      code: code,
+      grant_type: "authorization_code",
+      client_id: DROPBOX_APP_KEY,
+      code_verifier: verifier,
+      redirect_uri: redirectUri
+    });
+
+    const response = await fetch("https://api.dropbox.com/oauth2/token",{
+      method:"POST",
+      headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+      body: body
+    });
+
+    const data = await response.json();
+
+    accessToken = data.access_token;
+    refreshToken = data.refresh_token;
+
+    localStorage.setItem("db_access", accessToken);
+    localStorage.setItem("db_refresh", refreshToken);
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+});
+
+/* =========================
+   REFRESH TOKEN
+========================= */
+
+async function refreshAccessToken(){
+
+  const body = new URLSearchParams({
+    grant_type:"refresh_token",
+    refresh_token: refreshToken,
+    client_id: DROPBOX_APP_KEY
+  });
+
+  const response = await fetch("https://api.dropbox.com/oauth2/token",{
+    method:"POST",
+    headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+    body: body
+  });
+
+  const data = await response.json();
+
+  accessToken = data.access_token;
+  localStorage.setItem("db_access", accessToken);
+}
+
+/* =========================
+   UPLOAD
+========================= */
+
+async function uploadAll(){
+
+  if(!shots.length){
+    alert("Nessuna foto da inviare.");
+    return;
+  }
+
+  if(!refreshToken){
+    await loginDropbox();
+    return;
+  }
+
+  await refreshAccessToken();
+
+  for(const shot of shots){
+    await fetch(
+      "https://content.dropboxapi.com/2/files/upload",
+      {
+        method:"POST",
+        headers:{
+          "Authorization":"Bearer "+accessToken,
+          "Dropbox-API-Arg": JSON.stringify({
+            path: DROPBOX_FOLDER + "/" + shot.name,
+            mode:"add",
+            autorename:true,
+            mute:false
+          }),
+          "Content-Type":"application/octet-stream"
+        },
+        body: shot.blob
+      }
+    );
+  }
+
+  alert("Upload completato.");
+  shots = [];
+  previewBar.innerHTML = "";
+}
+
+
+</script>
+
+</body>
+</html>
+
