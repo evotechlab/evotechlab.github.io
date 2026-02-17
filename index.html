@@ -145,16 +145,10 @@ const SUPABASE_URL = "https://ncygginuzrypdrhurjtw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Fnc4DpC5a3t0uBSNgWR7bQ_jryM7Yhv";
 const SUPABASE_BUCKET = "fieldcam";
 
-let supabase = null;
-
-if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-  supabase = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-  );
-} else {
-  console.warn("Supabase non configurato");
-}
+/* Creiamo supabase UNA SOLA VOLTA */
+const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 
 /* =========================
    STATE
@@ -168,8 +162,7 @@ const uploadBtn = document.getElementById("uploadBtn");
 const previewBar = document.getElementById("previewBar");
 
 /* =========================
-   CAMERA (FIX ANDROID)
-   IDENTICA VERSIONE DROPBOX
+   CAMERA (IDENTICA DROPBOX)
 ========================= */
 
 navigator.mediaDevices.getUserMedia({
@@ -262,6 +255,7 @@ uploadBtn.addEventListener("click", async () => {
 
 </body>
 </html>
+
 
 
 
