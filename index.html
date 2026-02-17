@@ -40,8 +40,6 @@ main{
   flex-direction:column;
 }
 
-/* CAMERA */
-
 #camera{
   width:100%;
   aspect-ratio:4/3;
@@ -54,8 +52,6 @@ video{
   height:100%;
   object-fit:cover;
 }
-
-/* PREVIEW */
 
 #previewBar{
   flex:1;
@@ -76,8 +72,6 @@ video{
   border-radius:4px;
   flex-shrink:0;
 }
-
-/* CONTROLS */
 
 .controls{
   padding:1rem;
@@ -133,12 +127,12 @@ button.secondary{
 
   <div class="controls">
     <button class="primary" id="shoot">Scatta</button>
-    <button class="secondary" onclick="uploadAll()">Invia</button>
+    <button class="secondary" id="uploadBtn">Invia</button>
   </div>
 
 </main>
 
-<!-- SUPABASE CDN -->
+<!-- SUPABASE -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
@@ -161,40 +155,26 @@ const supabase = window.supabase.createClient(
 ========================= */
 
 let shots = [];
-let stream = null;
-let cameraStarted = false;
 
 const video = document.getElementById("video");
 const shoot = document.getElementById("shoot");
+const uploadBtn = document.getElementById("uploadBtn");
 const previewBar = document.getElementById("previewBar");
 
 /* =========================
-   START CAMERA (ANDROID SAFE)
+   CAMERA (VERSIONE STABILE)
 ========================= */
 
-async function startCamera(){
-
-  if(cameraStarted) return;
+async function initCamera(){
 
   try {
 
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" }
-      },
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
       audio: false
     });
 
     video.srcObject = stream;
-
-    await new Promise(resolve => {
-      video.onloadedmetadata = () => {
-        video.play();
-        resolve();
-      };
-    });
-
-    cameraStarted = true;
 
   } catch(err){
     console.error(err);
@@ -202,17 +182,13 @@ async function startCamera(){
   }
 }
 
+initCamera();
+
 /* =========================
    SCATTA FOTO
 ========================= */
 
-shoot.onclick = async () => {
-
-  // Se la camera non è partita la avviamo
-  if(!cameraStarted){
-    await startCamera();
-    return; // primo click avvia camera
-  }
+shoot.addEventListener("click", () => {
 
   if(!video.videoWidth){
     alert("Camera non pronta.");
@@ -237,7 +213,8 @@ shoot.onclick = async () => {
     addThumbnail(blob);
 
   }, "image/jpeg", 0.9);
-};
+
+});
 
 function addThumbnail(blob){
   const img = document.createElement("img");
@@ -246,10 +223,43 @@ function addThumbnail(blob){
   previewBar.appendChild(img);
 }
 
+/* =========================
+   UPLOAD SUPABASE
+========================= */
+
+uploadBtn.addEventListener("click", async () => {
+
+  if(!shots.length){
+    alert("Nessuna foto da inviare.");
+    return;
+  }
+
+  for(const shot of shots){
+
+    const { error } = await supabase
+      .storage
+      .from(SUPABASE_BUCKET)
+      .upload(shot.name, shot.blob, {
+        contentType: "image/jpeg"
+      });
+
+    if(error){
+      console.error(error);
+      alert("Errore upload: " + error.message);
+      return;
+    }
+  }
+
+  alert("Upload completato su Supabase.");
+  shots = [];
+  previewBar.innerHTML = "";
+});
+
 </script>
 
 </body>
 </html>
+
 
 
 
