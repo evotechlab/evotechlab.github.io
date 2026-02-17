@@ -145,10 +145,16 @@ const SUPABASE_URL = "https://ncygginuzrypdrhurjtw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Fnc4DpC5a3t0uBSNgWR7bQ_jryM7Yhv";
 const SUPABASE_BUCKET = "fieldcam";
 
-const supabase = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+let supabase = null;
+
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  supabase = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+} else {
+  console.warn("Supabase non configurato");
+}
 
 /* =========================
    STATE
@@ -162,27 +168,21 @@ const uploadBtn = document.getElementById("uploadBtn");
 const previewBar = document.getElementById("previewBar");
 
 /* =========================
-   CAMERA (VERSIONE STABILE)
+   CAMERA (FIX ANDROID)
+   IDENTICA VERSIONE DROPBOX
 ========================= */
 
-async function initCamera(){
-
-  try {
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-      audio: false
-    });
-
-    video.srcObject = stream;
-
-  } catch(err){
-    console.error(err);
-    alert("Errore accesso camera: " + err.name);
-  }
-}
-
-initCamera();
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: "environment" },
+  audio: false
+})
+.then(stream => {
+  video.srcObject = stream;
+})
+.catch(err => {
+  console.error("Errore camera:", err);
+  alert("Errore accesso camera: " + err.name);
+});
 
 /* =========================
    SCATTA FOTO
@@ -190,7 +190,7 @@ initCamera();
 
 shoot.addEventListener("click", () => {
 
-  if(!video.videoWidth){
+  if (!video.videoWidth) {
     alert("Camera non pronta.");
     return;
   }
@@ -210,18 +210,15 @@ shoot.addEventListener("click", () => {
     };
 
     shots.push(shot);
-    addThumbnail(blob);
+
+    const img = document.createElement("img");
+    img.src = URL.createObjectURL(blob);
+    img.className = "thumb";
+    previewBar.appendChild(img);
 
   }, "image/jpeg", 0.9);
 
 });
-
-function addThumbnail(blob){
-  const img = document.createElement("img");
-  img.src = URL.createObjectURL(blob);
-  img.className = "thumb";
-  previewBar.appendChild(img);
-}
 
 /* =========================
    UPLOAD SUPABASE
@@ -229,12 +226,17 @@ function addThumbnail(blob){
 
 uploadBtn.addEventListener("click", async () => {
 
-  if(!shots.length){
+  if (!supabase) {
+    alert("Supabase non configurato.");
+    return;
+  }
+
+  if (!shots.length) {
     alert("Nessuna foto da inviare.");
     return;
   }
 
-  for(const shot of shots){
+  for (const shot of shots) {
 
     const { error } = await supabase
       .storage
@@ -243,7 +245,7 @@ uploadBtn.addEventListener("click", async () => {
         contentType: "image/jpeg"
       });
 
-    if(error){
+    if (error) {
       console.error(error);
       alert("Errore upload: " + error.message);
       return;
@@ -257,8 +259,10 @@ uploadBtn.addEventListener("click", async () => {
 
 </script>
 
+
 </body>
 </html>
+
 
 
 
