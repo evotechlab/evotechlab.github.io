@@ -161,30 +161,63 @@ const supabase = window.supabase.createClient(
 ========================= */
 
 let shots = [];
+let stream = null;
+let cameraStarted = false;
 
 const video = document.getElementById("video");
 const shoot = document.getElementById("shoot");
 const previewBar = document.getElementById("previewBar");
 
 /* =========================
-   CAMERA
+   START CAMERA (ANDROID SAFE)
 ========================= */
 
-navigator.mediaDevices.getUserMedia({
-  video: { facingMode: "environment" }
-})
-.then(stream => {
-  video.srcObject = stream;
-})
-.catch(err => {
-  alert("Errore accesso camera: " + err);
-});
+async function startCamera(){
+
+  if(cameraStarted) return;
+
+  try {
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" }
+      },
+      audio: false
+    });
+
+    video.srcObject = stream;
+
+    await new Promise(resolve => {
+      video.onloadedmetadata = () => {
+        video.play();
+        resolve();
+      };
+    });
+
+    cameraStarted = true;
+
+  } catch(err){
+    console.error(err);
+    alert("Errore accesso camera: " + err.name);
+  }
+}
 
 /* =========================
    SCATTA FOTO
 ========================= */
 
-shoot.onclick = () => {
+shoot.onclick = async () => {
+
+  // Se la camera non è partita la avviamo
+  if(!cameraStarted){
+    await startCamera();
+    return; // primo click avvia camera
+  }
+
+  if(!video.videoWidth){
+    alert("Camera non pronta.");
+    return;
+  }
 
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
@@ -213,42 +246,10 @@ function addThumbnail(blob){
   previewBar.appendChild(img);
 }
 
-/* =========================
-   UPLOAD SUPABASE
-========================= */
-
-async function uploadAll(){
-
-  if(!shots.length){
-    alert("Nessuna foto da inviare.");
-    return;
-  }
-
-  for(const shot of shots){
-
-    const { error } = await supabase
-      .storage
-      .from(SUPABASE_BUCKET)
-      .upload(shot.name, shot.blob, {
-        contentType: "image/jpeg",
-        upsert: false
-      });
-
-    if(error){
-      console.error(error);
-      alert("Errore upload: " + error.message);
-      return;
-    }
-  }
-
-  alert("Upload completato su Supabase.");
-  shots = [];
-  previewBar.innerHTML = "";
-}
-
 </script>
 
 </body>
 </html>
+
 
 
