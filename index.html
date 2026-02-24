@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FieldCam O&M</title>
 
+<link rel="icon" href="data:,">
+
 <style>
 :root{
   --bg:#111;
@@ -39,7 +41,6 @@ input, select{
   border:1px solid var(--border);
   color:var(--text);
 }
-label{font-size:.8rem;opacity:.8;}
 #camera{
   height:40vh;
   background:#000;
@@ -132,23 +133,134 @@ button{
 
 <script>
 
-const DROPBOX_APP_KEY="0kimqzc29he9w1u";
-const DROPBOX_ROOT="/FieldCam";
+/* ================= CONFIG ================= */
 
-let shots=[];
-let accessToken=localStorage.getItem("field_access");
-let refreshToken=localStorage.getItem("field_refresh");
+const DROPBOX_APP_KEY = "0kimqzc29he9w1u";
+const DROPBOX_ROOT = "/FieldCam";
 
-const video=document.getElementById("video");
+let shots = [];
+let accessToken = localStorage.getItem("field_access");
+let refreshToken = localStorage.getItem("field_refresh");
 
+/* ================= CAMERA ================= */
+
+const video = document.getElementById("video");
 navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
-.then(stream=>video.srcObject=stream);
+.then(stream=>video.srcObject=stream)
+.catch(err=>alert("Errore camera: "+err.message));
+
+/* ================= UTIL ================= */
 
 function sanitize(text){
   return text.replace(/\s+/g,"_").replace(/[^\w\-]/g,"");
 }
 
-document.getElementById("shoot").onclick=()=>{
+function base64UrlEncode(arrayBuffer){
+  return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    .replace(/\+/g,"-")
+    .replace(/\//g,"_")
+    .replace(/=+$/,"");
+}
+
+/* ================= PKCE LOGIN ================= */
+
+async function loginDropbox(){
+
+  const verifier = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+  localStorage.setItem("pkce_verifier", verifier);
+
+  const challenge = base64UrlEncode(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+  );
+
+  const redirectUri = window.location.origin + window.location.pathname;
+
+  const url =
+    "https://www.dropbox.com/oauth2/authorize" +
+    "?client_id=" + DROPBOX_APP_KEY +
+    "&response_type=code" +
+    "&code_challenge=" + challenge +
+    "&code_challenge_method=S256" +
+    "&token_access_type=offline" +
+    "&redirect_uri=" + encodeURIComponent(redirectUri);
+
+  window.location.href = url;
+}
+
+/* ================= HANDLE REDIRECT ================= */
+
+window.addEventListener("load", async () => {
+
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+
+  if(code){
+
+    const verifier = localStorage.getItem("pkce_verifier");
+    const redirectUri = window.location.origin + window.location.pathname;
+
+    const body = new URLSearchParams({
+      code,
+      grant_type:"authorization_code",
+      client_id:DROPBOX_APP_KEY,
+      code_verifier:verifier,
+      redirect_uri:redirectUri
+    });
+
+    const res = await fetch("https://api.dropbox.com/oauth2/token",{
+      method:"POST",
+      headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+      body
+    });
+
+    if(!res.ok){
+      alert("Errore autenticazione Dropbox");
+      return;
+    }
+
+    const data = await res.json();
+
+    accessToken = data.access_token;
+    refreshToken = data.refresh_token;
+
+    localStorage.setItem("field_access", accessToken);
+    localStorage.setItem("field_refresh", refreshToken);
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+});
+
+/* ================= REFRESH TOKEN ================= */
+
+async function refreshAccess(){
+
+  const body = new URLSearchParams({
+    grant_type:"refresh_token",
+    refresh_token:refreshToken,
+    client_id:DROPBOX_APP_KEY
+  });
+
+  const res = await fetch("https://api.dropbox.com/oauth2/token",{
+    method:"POST",
+    headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+    body
+  });
+
+  if(!res.ok){
+    console.error("Refresh fallito");
+    loginDropbox();
+    return;
+  }
+
+  const data = await res.json();
+  accessToken = data.access_token;
+  localStorage.setItem("field_access", accessToken);
+}
+
+/* ================= SCATTA ================= */
+
+document.getElementById("shoot").onclick = ()=>{
   const canvas=document.createElement("canvas");
   canvas.width=video.videoWidth;
   canvas.height=video.videoHeight;
@@ -163,25 +275,17 @@ document.getElementById("shoot").onclick=()=>{
   },"image/jpeg",0.9);
 };
 
-async function refreshAccess(){
-  const body=new URLSearchParams({
-    grant_type:"refresh_token",
-    refresh_token:refreshToken,
-    client_id:DROPBOX_APP_KEY
-  });
-  const res=await fetch("https://api.dropbox.com/oauth2/token",{
-    method:"POST",
-    headers:{"Content-Type":"application/x-www-form-urlencoded"},
-    body
-  });
-  const data=await res.json();
-  accessToken=data.access_token;
-  localStorage.setItem("field_access",accessToken);
-}
+/* ================= UPLOAD ================= */
 
-document.getElementById("upload").onclick=async()=>{
+document.getElementById("upload").onclick = async()=>{
 
-  if(!shots.length)return alert("Nessuna foto");
+  if(!shots.length) return alert("Nessuna foto");
+
+  if(!refreshToken){
+    return loginDropbox();
+  }
+
+  await refreshAccess();
 
   const operatore=sanitize(document.getElementById("operatore").value);
   const imp=sanitize(document.getElementById("impianto").value);
@@ -191,14 +295,12 @@ document.getElementById("upload").onclick=async()=>{
   const zona=document.getElementById("zona").value;
   const statoSel=document.getElementById("stato").value;
 
-  const statoFolder=statoSel==="ISPEZIONE"
+  const statoFolder = statoSel==="ISPEZIONE"
     ?"STATO_DEI_FATTI_ISPEZIONE"
     :"MANUTENZIONE_RILASCIO";
 
   const impiantoFolder=`${imp}_${pot}MW_${luogo}`;
   const today=new Date().toISOString().split("T")[0];
-
-  await refreshAccess();
 
   let count=1;
 
@@ -210,7 +312,7 @@ document.getElementById("upload").onclick=async()=>{
     const path=
       `${DROPBOX_ROOT}/${impiantoFolder}/${zona}/${statoFolder}/${fileName}`;
 
-    await fetch("https://content.dropboxapi.com/2/files/upload",{
+    const response = await fetch("https://content.dropboxapi.com/2/files/upload",{
       method:"POST",
       headers:{
         "Authorization":"Bearer "+accessToken,
@@ -224,6 +326,12 @@ document.getElementById("upload").onclick=async()=>{
       body:blob
     });
 
+    if(!response.ok){
+      const err = await response.text();
+      console.error("Errore upload:", err);
+      return alert("Errore upload: "+response.status);
+    }
+
     count++;
   }
 
@@ -235,6 +343,7 @@ document.getElementById("upload").onclick=async()=>{
 </script>
 </body>
 </html>
+
 
 
 
