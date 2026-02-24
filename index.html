@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FieldCam O&M v2</title>
+<title>FieldCam O&M v2.1</title>
 
 <style>
 :root{
@@ -13,9 +13,7 @@
   --accent:#d6a800;
   --text:#e8e8e8;
 }
-
 *{box-sizing:border-box;margin:0;padding:0;}
-
 body{
   font-family:system-ui;
   background:var(--bg);
@@ -24,7 +22,6 @@ body{
   flex-direction:column;
   min-height:100vh;
 }
-
 header{
   padding:1rem;
   text-align:center;
@@ -32,100 +29,32 @@ header{
   border-bottom:1px solid var(--border);
   font-weight:600;
 }
-
-main{
-  flex:1;
-  display:flex;
-  flex-direction:column;
+main{flex:1;display:flex;flex-direction:column;}
+.section{padding:1rem;background:var(--panel);border-bottom:1px solid var(--border);}
+input,select{
+  width:100%;padding:.6rem;margin:.4rem 0 .8rem;
+  background:#121417;border:1px solid var(--border);color:var(--text);
 }
-
-.section{
-  padding:1rem;
-  border-bottom:1px solid var(--border);
-  background:var(--panel);
-}
-
-input, select{
-  width:100%;
-  padding:.6rem;
-  margin-top:.4rem;
-  margin-bottom:.8rem;
-  background:#121417;
-  border:1px solid var(--border);
-  color:var(--text);
-}
-
-.zone-grid{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:.5rem;
-}
-
+.zone-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;}
 .zone-btn{
-  padding:.7rem;
-  border:1px solid var(--border);
-  background:#121417;
-  color:var(--text);
-  font-size:.75rem;
-  cursor:pointer;
+  padding:.7rem;border:1px solid var(--border);
+  background:#121417;color:var(--text);
+  font-size:.75rem;cursor:pointer;
 }
-
-.zone-btn.active{
-  background:var(--accent);
-  color:#000;
-}
-
-#camera{
-  aspect-ratio:4/3;
-  background:#000;
-}
-
-video{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
-
-.controls{
-  display:flex;
-  gap:1rem;
-  padding:1rem;
-  background:var(--panel);
-  border-top:1px solid var(--border);
-}
-
-button{
-  flex:1;
-  padding:.8rem;
-  border:none;
-  font-weight:600;
-  cursor:pointer;
-}
-
-.primary{ background:var(--accent); color:#000; }
-.secondary{ background:#2a2a2a; color:var(--text); }
-
-#previewBar{
-  display:flex;
-  gap:.5rem;
-  overflow-x:auto;
-  padding:.5rem;
-  background:#121417;
-}
-
-.thumb{
-  height:70px;
-  aspect-ratio:4/3;
-  object-fit:cover;
-  border:1px solid var(--border);
-}
+.zone-btn.active{background:var(--accent);color:#000;}
+#camera{aspect-ratio:4/3;background:#000;}
+video{width:100%;height:100%;object-fit:cover;}
+.controls{display:flex;gap:1rem;padding:1rem;background:var(--panel);}
+button{flex:1;padding:.8rem;border:none;font-weight:600;cursor:pointer;}
+.primary{background:var(--accent);color:#000;}
+.secondary{background:#2a2a2a;color:var(--text);}
+#previewBar{display:flex;gap:.5rem;overflow-x:auto;padding:.5rem;background:#121417;}
+.thumb{height:70px;aspect-ratio:4/3;object-fit:cover;border:1px solid var(--border);}
 </style>
 </head>
 <body>
 
-<header>
-FieldCam – O&M Structured Capture
-</header>
+<header>FieldCam O&M – Dropbox Sync</header>
 
 <main>
 
@@ -163,136 +92,207 @@ FieldCam – O&M Structured Capture
 
 <script>
 
-/* ===============================
+/* ==========================
    CONFIG
-=============================== */
+========================== */
+
+const DROPBOX_APP_KEY = "0kimqzc29he9w1u";
+let accessToken = localStorage.getItem("db_access");
+let refreshToken = localStorage.getItem("db_refresh");
 
 const ZONES = [
-"WX_STATION",
-"PV_MODULES",
-"INVERTERS",
-"MV_LV_TRANSFORMERS",
-"MV_LV_ROOMS",
-"UPS_SYSTEMS",
-"FIELD_COMBINERS",
-"GRID_DELIVERY_SUBSTATION",
-"STRINGS",
-"DC_WIRING",
-"SITE_GENERAL",
-"SECURITY_SYSTEM"
+"WX_STATION","PV_MODULES","INVERTERS","MV_LV_TRANSFORMERS",
+"MV_LV_ROOMS","UPS_SYSTEMS","FIELD_COMBINERS",
+"GRID_DELIVERY_SUBSTATION","STRINGS","DC_WIRING",
+"SITE_GENERAL","SECURITY_SYSTEM"
 ];
 
-let currentZone = null;
-let shots = [];
+let currentZone=null;
+let shots=[];
 
-/* ===============================
+/* ==========================
    BUILD ZONE GRID
-=============================== */
+========================== */
 
-const zoneGrid = document.getElementById("zoneGrid");
-
+const zoneGrid=document.getElementById("zoneGrid");
 ZONES.forEach(zone=>{
-  const btn = document.createElement("button");
+  const btn=document.createElement("button");
   btn.className="zone-btn";
   btn.textContent=zone;
   btn.onclick=()=>{
     document.querySelectorAll(".zone-btn").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
-    currentZone = zone;
+    currentZone=zone;
   };
   zoneGrid.appendChild(btn);
 });
 
-/* ===============================
+/* ==========================
    CAMERA
-=============================== */
+========================== */
 
-const video = document.getElementById("video");
+const video=document.getElementById("video");
+navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
+.then(stream=>video.srcObject=stream);
 
-navigator.mediaDevices.getUserMedia({
-  video:{ facingMode:"environment" }
-})
-.then(stream=>video.srcObject=stream)
-.catch(err=>alert("Errore camera: "+err));
-
-/* ===============================
+/* ==========================
    SCATTO
-=============================== */
+========================== */
 
 document.getElementById("shoot").onclick=()=>{
-
-  if(!currentZone){
-    alert("Selezionare zona.");
-    return;
-  }
-
+  if(!currentZone){alert("Seleziona zona.");return;}
   const canvas=document.createElement("canvas");
   canvas.width=video.videoWidth;
   canvas.height=video.videoHeight;
   canvas.getContext("2d").drawImage(video,0,0);
-
   canvas.toBlob(blob=>{
-
-    const timestamp = Date.now();
-
-    shots.push({
-      blob,
-      zone:currentZone,
-      name:"IMG_"+timestamp+".jpg"
-    });
-
+    shots.push({blob,zone:currentZone,name:"IMG_"+Date.now()+".jpg"});
     const img=document.createElement("img");
     img.src=URL.createObjectURL(blob);
     img.className="thumb";
-    document.getElementById("previewBar").appendChild(img);
-
+    previewBar.appendChild(img);
   },"image/jpeg",0.9);
 };
 
-/* ===============================
+/* ==========================
    PATH GENERATOR
-=============================== */
+========================== */
 
 function buildPath(shot){
+  const plant=plantInput.value.trim();
+  const operator=operatorInput.value.trim();
+  const intervention=interventionSelect.value;
+  const today=new Date().toISOString().split("T")[0];
 
-  const plant = document.getElementById("plant").value.trim();
-  const operator = document.getElementById("operator").value.trim();
-  const intervention = document.getElementById("intervention").value;
-
-  const today = new Date().toISOString().split("T")[0];
-
-  return "/" +
-    plant + "/" +
-    today + "_" + intervention + "_" + operator + "/" +
-    shot.zone + "/" +
-    intervention + "/" +
+  return "/"+plant+"/"+
+    today+"_"+intervention+"_"+operator+"/"+
+    shot.zone+"/"+
+    intervention+"/"+
     shot.name;
 }
 
-/* ===============================
-   UPLOAD MOCK (replace Dropbox)
-=============================== */
+const plantInput=document.getElementById("plant");
+const operatorInput=document.getElementById("operator");
+const interventionSelect=document.getElementById("intervention");
 
-document.getElementById("upload").onclick=()=>{
+/* ==========================
+   DROPBOX AUTH PKCE
+========================== */
 
-  if(!shots.length){
-    alert("Nessuna foto.");
+function base64UrlEncode(buffer){
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+
+async function sha256(plain){
+  return await crypto.subtle.digest("SHA-256",new TextEncoder().encode(plain));
+}
+
+async function loginDropbox(){
+  const verifier=base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge=base64UrlEncode(await sha256(verifier));
+  localStorage.setItem("pkce_verifier",verifier);
+
+  const redirectUri=location.origin+location.pathname;
+
+  location.href="https://www.dropbox.com/oauth2/authorize"+
+  "?client_id="+DROPBOX_APP_KEY+
+  "&response_type=code"+
+  "&code_challenge="+challenge+
+  "&code_challenge_method=S256"+
+  "&token_access_type=offline"+
+  "&redirect_uri="+encodeURIComponent(redirectUri);
+}
+
+window.addEventListener("load",async()=>{
+  const params=new URLSearchParams(location.search);
+  const code=params.get("code");
+  if(code){
+    const verifier=localStorage.getItem("pkce_verifier");
+    const redirectUri=location.origin+location.pathname;
+
+    const body=new URLSearchParams({
+      code:code,
+      grant_type:"authorization_code",
+      client_id:DROPBOX_APP_KEY,
+      code_verifier:verifier,
+      redirect_uri:redirectUri
+    });
+
+    const res=await fetch("https://api.dropbox.com/oauth2/token",{
+      method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body
+    });
+
+    const data=await res.json();
+    accessToken=data.access_token;
+    refreshToken=data.refresh_token;
+    localStorage.setItem("db_access",accessToken);
+    localStorage.setItem("db_refresh",refreshToken);
+    history.replaceState({},document.title,location.pathname);
+  }
+});
+
+async function refreshAccessToken(){
+  const body=new URLSearchParams({
+    grant_type:"refresh_token",
+    refresh_token:refreshToken,
+    client_id:DROPBOX_APP_KEY
+  });
+  const res=await fetch("https://api.dropbox.com/oauth2/token",{
+    method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body
+  });
+  const data=await res.json();
+  accessToken=data.access_token;
+  localStorage.setItem("db_access",accessToken);
+}
+
+/* ==========================
+   UPLOAD
+========================== */
+
+document.getElementById("upload").onclick=async()=>{
+
+  if(!shots.length){alert("Nessuna foto.");return;}
+
+  if(!refreshToken){
+    await loginDropbox();
     return;
   }
 
-  shots.forEach(s=>{
-    console.log("UPLOAD PATH:", buildPath(s));
-  });
+  await refreshAccessToken();
 
-  alert("Simulazione upload completata. Controlla console.");
+  for(const shot of shots){
+    const path=buildPath(shot);
+    await fetch("https://content.dropboxapi.com/2/files/upload",{
+      method:"POST",
+      headers:{
+        "Authorization":"Bearer "+accessToken,
+        "Dropbox-API-Arg":JSON.stringify({
+          path:path,
+          mode:"add",
+          autorename:true,
+          mute:false
+        }),
+        "Content-Type":"application/octet-stream"
+      },
+      body:shot.blob
+    });
+  }
+
+  alert("Upload completato.");
   shots=[];
-  document.getElementById("previewBar").innerHTML="";
+  previewBar.innerHTML="";
 };
 
 </script>
 
 </body>
 </html>
+
 
 
 
