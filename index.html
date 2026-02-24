@@ -96,7 +96,15 @@ button{flex:1;padding:.8rem;border:none;font-weight:600;cursor:pointer;}
    CONFIG
 ========================== */
 
+/* ==========================
+   DROPBOX CONFIG
+========================== */
+
 const DROPBOX_APP_KEY = "0kimqzc29he9w1u";
+
+/* Cartella base dentro App Folder */
+const APP_BASE_FOLDER = "/CANTIERI";
+
 let accessToken = localStorage.getItem("db_access");
 let refreshToken = localStorage.getItem("db_refresh");
 
@@ -292,6 +300,7 @@ document.getElementById("upload").onclick=async()=>{
 
 </body>
 </html>
+
 
 
 
