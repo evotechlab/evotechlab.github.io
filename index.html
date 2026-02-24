@@ -3,126 +3,291 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FieldCam Dropbox Upload</title>
+<title>FieldCam</title>
 
 <style>
-body{
-  font-family:system-ui;
-  background:#111;
-  color:#eee;
-  text-align:center;
-  padding:20px;
+:root{
+  --bg:#111;
+  --panel:#1c1c1c;
+  --border:#2a2a2a;
+  --accent:#d6a800;
+  --text:#eaeaea;
 }
+
+*{box-sizing:border-box;}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* Permetti scroll naturale */
+main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+/* Camera adattiva */
+#camera{
+  width:100%;
+  aspect-ratio:4/3;   /* 🔥 molto più stabile su mobile */
+  background:#000;
+  position:relative;
+}
+
+/* Preview area */
+#previewBar{
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  overflow-x:auto;
+  overflow-y:hidden;
+  display:flex;
+  gap:.6rem;
+  padding:.8rem;
+}
+
+/* Controls sempre visibili */
+.controls{
+  padding:1rem;
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  display:flex;
+  gap:1rem;
+}
+
+
+
+
+header{
+  padding:1rem;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  font-weight:600;
+  text-align:center;
+}
+
+/* =========================
+   MAIN LAYOUT
+========================= */
+
+main{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+/* CAMERA */
+
+#camera{
+  flex:0 0 60%;
+  background:#000;
+  position:relative;
+}
+
 video{
   width:100%;
-  max-width:400px;
-  border:2px solid #333;
+  height:100%;
+  object-fit:cover;
 }
+
+/* ANTEPRIME */
+
+#previewBar{
+  flex:1;
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  overflow-x:auto;
+  overflow-y:hidden;
+  display:flex;
+  gap:.6rem;
+  padding:.8rem;
+  align-items:center;
+}
+
+.thumb{
+  height:80px;
+  aspect-ratio:4/3;
+  object-fit:cover;
+  border:1px solid var(--border);
+  border-radius:4px;
+  flex-shrink:0;
+}
+
+/* CONTROLS */
+
+.controls{
+  padding:1rem;
+  background:var(--panel);
+  border-top:1px solid var(--border);
+  display:flex;
+  gap:1rem;
+}
+
 button{
-  margin:10px;
-  padding:10px 20px;
-  font-weight:bold;
+  flex:1;
+  padding:.8rem;
+  border:none;
+  font-weight:600;
+  cursor:pointer;
+  border-radius:4px;
+  font-size:.9rem;
 }
-#preview{
-  margin-top:10px;
+
+button.primary{
+  background:var(--accent);
+  color:#000;
 }
-img{
-  max-width:150px;
-  margin-top:10px;
+
+button.secondary{
+  background:#2a2a2a;
+  color:var(--text);
+  border:1px solid var(--border);
+}
+
+/* =========================
+   DESKTOP
+========================= */
+
+@media (min-width:1000px){
+
+  #camera{
+    flex:1;
+  }
+
+  #previewBar{
+    height:140px;
+    flex:none;
+  }
+
 }
 </style>
 </head>
+
 <body>
 
-<h2>FieldCam – Dropbox Upload Test</h2>
+<header>
+  FieldCam – Dropbox Sync
+</header>
 
-<video id="video" autoplay playsinline></video>
-<br>
-<button id="shoot">Scatta Foto</button>
-<button id="upload">Upload su Dropbox</button>
+<main>
 
-<div id="preview"></div>
+  <section id="camera">
+    <video id="video" autoplay playsinline></video>
+  </section>
+
+  <div id="previewBar"></div>
+
+  <div class="controls">
+    <button class="primary" id="shoot">Scatta</button>
+    <button class="secondary" onclick="uploadAll()">Invia</button>
+  </div>
+
+</main>
 
 <script>
 
-/* ==========================
-   CONFIGURAZIONE
-========================== */
+/* =========================
+   CONFIG
+========================= */
 
 const DROPBOX_APP_KEY = "0kimqzc29he9w1u";
-const BASE_FOLDER = "/CANTIERI_TEST"; // dentro App Folder
+const DROPBOX_FOLDER = "";
 
+let shots = [];
 let accessToken = localStorage.getItem("db_access");
 let refreshToken = localStorage.getItem("db_refresh");
-let currentBlob = null;
-
-/* ==========================
-   CAMERA
-========================== */
 
 const video = document.getElementById("video");
+const shoot = document.getElementById("shoot");
+const previewBar = document.getElementById("previewBar");
+
+/* =========================
+   CAMERA
+========================= */
 
 navigator.mediaDevices.getUserMedia({
-  video:{facingMode:"environment"}
+  video: { facingMode: "environment" }
 })
-.then(stream=>video.srcObject=stream)
-.catch(err=>alert("Errore camera: "+err));
+.then(stream => {
+  video.srcObject = stream;
+})
+.catch(err => {
+  alert("Errore accesso camera: " + err);
+});
 
-/* ==========================
-   SCATTO FOTO
-========================== */
+/* =========================
+   SCATTA FOTO
+========================= */
 
-document.getElementById("shoot").onclick = () => {
+shoot.onclick = () => {
 
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(video,0,0);
+  ctx.drawImage(video, 0, 0);
 
-  canvas.toBlob(blob=>{
-    currentBlob = blob;
+  canvas.toBlob(blob => {
 
-    const img = document.createElement("img");
-    img.src = URL.createObjectURL(blob);
+    const shot = {
+      name: "fieldcam_" + Date.now() + ".jpg",
+      blob: blob
+    };
 
-    const preview = document.getElementById("preview");
-    preview.innerHTML="";
-    preview.appendChild(img);
+    shots.push(shot);
+    addThumbnail(blob);
 
-  },"image/jpeg",0.9);
+  }, "image/jpeg", 0.9);
 };
 
-/* ==========================
-   PKCE UTILS
-========================== */
-
-function base64UrlEncode(buffer){
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g,"-")
-    .replace(/\//g,"_")
-    .replace(/=+$/,"");
+function addThumbnail(blob){
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(blob);
+  img.className = "thumb";
+  previewBar.appendChild(img);
 }
 
-async function sha256(plain){
-  return await crypto.subtle.digest("SHA-256",new TextEncoder().encode(plain));
+/* =========================
+   PKCE UTILITIES
+========================= */
+
+function base64UrlEncode(arrayBuffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
-/* ==========================
-   LOGIN DROPBOX
-========================== */
+async function sha256(plain) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  return await crypto.subtle.digest("SHA-256", data);
+}
 
-async function loginDropbox(){
-
-  const verifier = base64UrlEncode(
-    crypto.getRandomValues(new Uint8Array(32))
-  );
-
+async function generatePKCE() {
+  const verifier = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = base64UrlEncode(await sha256(verifier));
-  localStorage.setItem("pkce_verifier",verifier);
+  localStorage.setItem("pkce_verifier", verifier);
+  return challenge;
+}
 
-  const redirectUri = location.origin + location.pathname;
+/* =========================
+   LOGIN
+========================= */
+
+async function loginDropbox() {
+
+  const challenge = await generatePKCE();
+
+  const redirectUri = window.location.origin + window.location.pathname;
 
   const authUrl =
     "https://www.dropbox.com/oauth2/authorize" +
@@ -136,19 +301,19 @@ async function loginDropbox(){
   window.location.href = authUrl;
 }
 
-/* ==========================
+/* =========================
    HANDLE REDIRECT
-========================== */
+========================= */
 
-window.addEventListener("load", async ()=>{
+window.addEventListener("load", async () => {
 
-  const params = new URLSearchParams(location.search);
+  const params = new URLSearchParams(window.location.search);
   const code = params.get("code");
 
   if(code){
 
     const verifier = localStorage.getItem("pkce_verifier");
-    const redirectUri = location.origin + location.pathname;
+    const redirectUri = window.location.origin + window.location.pathname;
 
     const body = new URLSearchParams({
       code: code,
@@ -158,18 +323,13 @@ window.addEventListener("load", async ()=>{
       redirect_uri: redirectUri
     });
 
-    const res = await fetch(
-      "https://api.dropbox.com/oauth2/token",
-      {
-        method:"POST",
-        headers:{
-          "Content-Type":"application/x-www-form-urlencoded"
-        },
-        body
-      }
-    );
+    const response = await fetch("https://api.dropbox.com/oauth2/token",{
+      method:"POST",
+      headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+      body: body
+    });
 
-    const data = await res.json();
+    const data = await response.json();
 
     accessToken = data.access_token;
     refreshToken = data.refresh_token;
@@ -177,61 +337,43 @@ window.addEventListener("load", async ()=>{
     localStorage.setItem("db_access", accessToken);
     localStorage.setItem("db_refresh", refreshToken);
 
-    history.replaceState({},document.title,location.pathname);
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
+
 });
 
-/* ==========================
+/* =========================
    REFRESH TOKEN
-========================== */
+========================= */
 
 async function refreshAccessToken(){
 
   const body = new URLSearchParams({
     grant_type:"refresh_token",
-    refresh_token:refreshToken,
-    client_id:DROPBOX_APP_KEY
+    refresh_token: refreshToken,
+    client_id: DROPBOX_APP_KEY
   });
 
-  const res = await fetch(
-    "https://api.dropbox.com/oauth2/token",
-    {
-      method:"POST",
-      headers:{
-        "Content-Type":"application/x-www-form-urlencoded"
-      },
-      body
-    }
-  );
+  const response = await fetch("https://api.dropbox.com/oauth2/token",{
+    method:"POST",
+    headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+    body: body
+  });
 
-  const data = await res.json();
+  const data = await response.json();
 
   accessToken = data.access_token;
-  localStorage.setItem("db_access",accessToken);
+  localStorage.setItem("db_access", accessToken);
 }
 
-/* ==========================
-   BUILD PATH
-========================== */
-
-function buildPath(){
-
-  const today = new Date().toISOString().split("T")[0];
-  const fileName = "IMG_" + Date.now() + ".jpg";
-
-  return BASE_FOLDER + "/" +
-         today + "/" +
-         fileName;
-}
-
-/* ==========================
+/* =========================
    UPLOAD
-========================== */
+========================= */
 
-document.getElementById("upload").onclick = async ()=>{
+async function uploadAll(){
 
-  if(!currentBlob){
-    alert("Scatta prima una foto.");
+  if(!shots.length){
+    alert("Nessuna foto da inviare.");
     return;
   }
 
@@ -242,43 +384,37 @@ document.getElementById("upload").onclick = async ()=>{
 
   await refreshAccessToken();
 
-  const path = buildPath();
-
-  console.log("UPLOAD PATH:", path);
-
-  const response = await fetch(
-    "https://content.dropboxapi.com/2/files/upload",
-    {
-      method:"POST",
-      headers:{
-        "Authorization":"Bearer "+accessToken,
-        "Dropbox-API-Arg": JSON.stringify({
-          path:path,
-          mode:"add",
-          autorename:true,
-          mute:false
-        }),
-        "Content-Type":"application/octet-stream"
-      },
-      body:currentBlob
-    }
-  );
-
-  const text = await response.text();
-
-  if(!response.ok){
-    console.error("UPLOAD ERROR:", text);
-    alert("Errore upload. Controlla console.");
-  } else {
-    console.log("SUCCESS:", text);
-    alert("Upload completato!");
+  for(const shot of shots){
+    await fetch(
+      "https://content.dropboxapi.com/2/files/upload",
+      {
+        method:"POST",
+        headers:{
+          "Authorization":"Bearer "+accessToken,
+          "Dropbox-API-Arg": JSON.stringify({
+            path: DROPBOX_FOLDER + "/" + shot.name,
+            mode:"add",
+            autorename:true,
+            mute:false
+          }),
+          "Content-Type":"application/octet-stream"
+        },
+        body: shot.blob
+      }
+    );
   }
-};
+
+  alert("Upload completato.");
+  shots = [];
+  previewBar.innerHTML = "";
+}
+
 
 </script>
 
 </body>
 </html>
+
 
 
 
