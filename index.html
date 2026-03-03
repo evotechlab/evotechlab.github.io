@@ -221,14 +221,11 @@ const compressImageToBlob = (file, maxWidth = 1600, quality = 0.7) => new Promis
 });
 
 
-
-// Chiamata al Worker (ora usa FormData, stabile e a prova di bomba per il mobile)
 /* ================= UTILITY ================= */
-// Questa è praticamente identica alla tua vecchia dropboxFetch!
+/* ================= UTILITY ================= */
 async function proxyFetch(filename, fileOrString, isJson = false) {
     if(!accessToken) return { status: 401 };
 
-    // Passiamo le istruzioni nell'URL per non far arrabbiare il browser Android
     const url = new URL(WORKER_URL);
     url.searchParams.append("action", "upload");
     url.searchParams.append("filename", filename);
@@ -239,17 +236,25 @@ async function proxyFetch(filename, fileOrString, isJson = false) {
             "Authorization": "Bearer " + accessToken,
             "Content-Type": isJson ? "application/json" : "application/octet-stream"
         },
-        body: fileOrString // Passiamo il file crudo originale!
+        body: fileOrString 
     });
     
-    if(res.status === 401) { localStorage.removeItem("db_access"); location.reload(); }
+    // Leggiamo la risposta del Cloudflare Worker / Dropbox
+    const responseText = await res.text();
     
-    if(!res.ok) {
-        const err = await res.text();
-        throw new Error(`Errore Server: ${err}`);
+    // IL SALVAVITA: Se il token è scaduto o non valido
+    if(res.status === 401 || responseText.includes("expired_access_token")) { 
+        localStorage.removeItem("db_access"); // Puliamo la memoria
+        alert("La sessione di Dropbox è scaduta. Clicca OK per tornare al Login.");
+        location.reload(); // Ricarica la pagina mostrando il tasto Login
+        throw new Error("Token scaduto, reindirizzamento al login...");
     }
     
-    return await res.json();
+    if(!res.ok) {
+        throw new Error(`Errore Server: ${responseText}`);
+    }
+    
+    return JSON.parse(responseText);
 }
 
 
@@ -438,6 +443,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
