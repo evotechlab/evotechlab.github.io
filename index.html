@@ -220,6 +220,16 @@ const compressImageToBlob = (file, maxWidth = 1600, quality = 0.7) => new Promis
     reader.onerror = e => reject(e);
 });
 
+   //debug
+
+   const photoBlob = await compressImageToBlob(photoFilesQueue[i].file);
+
+console.log("Blob size:", photoBlob ? photoBlob.size : "NULL");
+
+if (!photoBlob) {
+    throw new Error("Compressione fallita");
+}
+
 // Chiamata al Worker (ora usa FormData, stabile e a prova di bomba per il mobile)
 async function proxyFetch(filename, fileBlob) {
     if (!accessToken) throw new Error("Utente non autenticato");
@@ -415,6 +425,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
