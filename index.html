@@ -220,15 +220,7 @@ const compressImageToBlob = (file, maxWidth = 1600, quality = 0.7) => new Promis
     reader.onerror = e => reject(e);
 });
 
-   //debug
 
-   const photoBlob = await compressImageToBlob(photoFilesQueue[i].file);
-
-console.log("Blob size:", photoBlob ? photoBlob.size : "NULL");
-
-if (!photoBlob) {
-    throw new Error("Compressione fallita");
-}
 
 // Chiamata al Worker (ora usa FormData, stabile e a prova di bomba per il mobile)
 async function proxyFetch(filename, fileBlob) {
@@ -313,6 +305,13 @@ function renderPhotoGrid() {
 
 /* ================= UPLOAD TRAMITE CLOUDFLARE PROXY ================= */
 async function uploadData() {
+      const photoBlob = await compressImageToBlob(photoFilesQueue[i].file);
+
+console.log("Blob size:", photoBlob ? photoBlob.size : "NULL");
+
+if (!photoBlob) {
+    throw new Error("Compressione fallita");
+}
     const op = document.getElementById('operatore').value.trim();
     const impRaw = document.getElementById('impianto').value.trim();
     const luogoRaw = document.getElementById('luogo').value.trim() || "ND";
@@ -425,6 +424,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
