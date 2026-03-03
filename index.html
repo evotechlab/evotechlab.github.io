@@ -68,7 +68,7 @@
     <div id="authCard" class="card" style="text-align: center; margin-top: 40px;">
         <i class="fa-brands fa-dropbox" style="font-size: 48px; color: #0061FE; margin-bottom: 16px;"></i>
         <h3 style="margin-top:0;">Autenticazione</h3>
-        <button class="btn btn-submit" onclick="loginDropbox()"><i class="fa-solid fa-lock"></i> Login Dropbox</button>
+        <button class="btn btn-submit" onclick="loginDropbox()"><i class="fa-solid fa-lock"></i> Login Sicuro</button>
     </div>
 
     <div id="appContent" class="hidden">
@@ -154,42 +154,83 @@
 </div>
 
 <script>
-/* ================= CONFIG DROPBOX ================= */
-const DROPBOX_APP_KEY = "0kimqzc29he9w1u"; 
-const REDIRECT_URI = "https://evotechlab.github.io/fieldcam/";
-const BASE_FOLDER = "/FieldCam";
+/* ================= CONFIGURAZIONE PROXY ================= */
+// INSERISCI QUI L'URL DEL TUO WORKER CLOUDFLARE (es. https://dropbox-proxy.tuonome.workers.dev)
+const WORKER_URL = "https://dropbox-api.sviluppo-49a.workers.dev"; 
 
 let accessToken = localStorage.getItem("db_access");
 let photoFilesQueue = []; 
 let gpsData = null;
 let sessionUploadedPhotos = 0;
 
-/* ================= AUTENTICAZIONE ================= */
-function generateRandomString(length) { let res=''; const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; for(let i=0;i<length;i++) res+=chars.charAt(Math.floor(Math.random()*chars.length)); return res; }
-async function sha256(plain) { const enc=new TextEncoder(); const data=enc.encode(plain); const hash=await crypto.subtle.digest('SHA-256',data); return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-
+/* ================= AUTENTICAZIONE TRAMITE PROXY ================= */
 async function loginDropbox() {
-    const codeVerifier = generateRandomString(64); localStorage.setItem("pkce_verifier", codeVerifier);
-    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&code_challenge=${await sha256(codeVerifier)}&code_challenge_method=S256&token_access_type=online&scope=files.metadata.read files.metadata.write files.content.read files.content.write`;
-    window.location.href = authUrl;
+    try {
+        const res = await fetch(WORKER_URL, {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "getAuthUrl" })
+        });
+        const data = await res.json();
+        if(data.success && data.url) {
+            window.location.href = data.url;
+        } else {
+            alert("Errore nella generazione del link di login dal Proxy.");
+        }
+    } catch (e) {
+        alert("Impossibile contattare il server proxy Cloudflare.");
+    }
 }
 
 async function handleRedirect() {
-    const code = new URLSearchParams(window.location.search).get("code"); if(!code) return;
-    const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
-        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ code, grant_type: "authorization_code", client_id: DROPBOX_APP_KEY, redirect_uri: REDIRECT_URI, code_verifier: localStorage.getItem("pkce_verifier") })
-    });
-    const data = await res.json();
-    if(data.access_token) { accessToken = data.access_token; localStorage.setItem("db_access", accessToken); window.history.replaceState({}, document.title, REDIRECT_URI); }
+    // Cloudflare ora ci restituisce il token nell'URL dopo l'autorizzazione di Dropbox
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+        const params = new URLSearchParams(hash.substring(1));
+        const token = params.get("access_token");
+        if (token) {
+            accessToken = token;
+            localStorage.setItem("db_access", accessToken);
+            // Puliamo l'URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
 }
 
-async function dropboxFetch(url, options = {}) {
-    if(!accessToken) return { status: 401 };
-    options.headers = { ...options.headers, "Authorization": "Bearer " + accessToken };
-    const res = await fetch(url, options);
-    if(res.status === 401) { localStorage.removeItem("db_access"); location.reload(); }
-    return res;
+/* ================= UTILITY ================= */
+// Converte un File in Base64 per inviarlo al Worker
+const toBase64 = file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+});
+
+// Chiamata universale al Worker
+async function proxyFetch(filename, base64Data) {
+    if(!accessToken) throw new Error("Utente non autenticato");
+    
+    const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + accessToken
+        },
+        body: JSON.stringify({
+            action: "upload",
+            filename: filename,
+            fileContentBase64: base64Data
+        })
+    });
+    
+    if(res.status === 401) { 
+        localStorage.removeItem("db_access"); 
+        location.reload(); 
+    }
+    
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error || "Errore sconosciuto dal proxy");
+    return data;
 }
 
 /* ================= GESTIONE MULTI-SCATTO ================= */
@@ -250,7 +291,7 @@ function renderPhotoGrid() {
     }
 }
 
-/* ================= UPLOAD A DROPBOX ================= */
+/* ================= UPLOAD TRAMITE CLOUDFLARE PROXY ================= */
 async function uploadData() {
     const op = document.getElementById('operatore').value.trim();
     const impRaw = document.getElementById('impianto').value.trim();
@@ -273,28 +314,25 @@ async function uploadData() {
     const safeImp = impRaw.replace(/[^a-zA-Z0-9]/g, '_');
     const safeLuogo = luogoRaw.replace(/[^a-zA-Z0-9]/g, '_');
     
-    // Livello 1: Impianto_Città_Potenza
+    // Costruiamo solo il PERCORSO RELATIVO. Il BASE_FOLDER è nascosto nel Worker.
     const impiantoFolder = `${safeImp}_${safeLuogo}_${potRaw}MW`;
-    
-    // Livello 2: Zona Impianto
     const zonaFolder = zRaw;
     
-    // Livello 3: Data_Ora_Stato_Operatore (Identificativo univoco della sessione d'invio)
     const now = new Date();
-    const dStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
-    const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // "HH-MM-SS"
+    const dStr = now.toISOString().split('T')[0];
+    const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
     const sessionFolder = `${dStr}_${tStr}_${s}_${safeOp}`;
     
-    const targetFolder = `${BASE_FOLDER}/${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
+    // Il percorso non contiene più il BASE_FOLDER (verrà aggiunto dal server)
+    const relativeTargetFolder = `${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
     
     const totalSteps = photoFilesQueue.length + 1; // n foto + 1 JSON
     let currentStep = 0;
 
     try {
-        // Generazione Nomi Foto ordinati (Foto_01.jpg, Foto_02.jpg)
         const photoNames = photoFilesQueue.map((_, index) => `Foto_${String(index + 1).padStart(2, '0')}.jpg`);
 
-        // 1. Upload JSON dei Metadati all'interno della cartella di sessione
+        // 1. Upload JSON dei Metadati
         document.getElementById('loaderText').innerText = "Salvataggio Metadati...";
         document.getElementById('loaderSubtext').innerText = "Creazione cartella di sessione...";
         
@@ -310,23 +348,23 @@ async function uploadData() {
             foto_allegate: photoNames
         };
         
-        await dropboxFetch("https://content.dropboxapi.com/2/files/upload", {
-            method: "POST", headers: { "Content-Type": "application/octet-stream", "Dropbox-API-Arg": JSON.stringify({ path: `${targetFolder}/Report_Metadati.json`, mode: "add", autorename: true }) },
-            body: JSON.stringify(reportData, null, 2)
-        });
+        // Convertiamo il JSON in Base64 per inviarlo uniformemente al Worker
+        const jsonString = JSON.stringify(reportData, null, 2);
+        const jsonBase64 = "data:application/json;base64," + btoa(unescape(encodeURIComponent(jsonString)));
+        
+        await proxyFetch(`${relativeTargetFolder}/Report_Metadati.json`, jsonBase64);
         
         currentStep++;
         progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 
-        // 2. Upload Ciclico delle Foto nella stessa cartella
+        // 2. Upload Ciclico delle Foto
         for(let i=0; i<photoFilesQueue.length; i++) {
             document.getElementById('loaderText').innerText = `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}...`;
             document.getElementById('loaderSubtext').innerText = "Attendere prego, non chiudere la pagina";
             
-            await dropboxFetch("https://content.dropboxapi.com/2/files/upload", {
-                method: "POST", headers: { "Content-Type": "application/octet-stream", "Dropbox-API-Arg": JSON.stringify({ path: `${targetFolder}/${photoNames[i]}`, mode: "add", autorename: true }) },
-                body: photoFilesQueue[i].file
-            });
+            // Convertiamo la foto binaria in Base64 prima di inviarla
+            const photoBase64 = await toBase64(photoFilesQueue[i].file);
+            await proxyFetch(`${relativeTargetFolder}/${photoNames[i]}`, photoBase64);
 
             currentStep++;
             progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
@@ -343,7 +381,7 @@ async function uploadData() {
     } catch (e) {
         console.error(e);
         loader.classList.add('hidden');
-        alert("Errore di connessione. Alcune foto potrebbero non essere state caricate. Riprova.");
+        alert("Errore di connessione col server sicuro. Alcune foto potrebbero non essere state caricate. Riprova.");
     }
 }
 
@@ -376,6 +414,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
