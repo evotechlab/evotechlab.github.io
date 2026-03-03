@@ -198,8 +198,7 @@ async function handleRedirect() {
 }
 
 /* ================= UTILITY ================= */
-/* ================= UTILITY ================= */
-// Comprime l'immagine e restituisce un Blob Binario leggerissimo
+
 const compressImageToBlob = (file, maxWidth = 1600, quality = 0.7) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -223,26 +222,24 @@ const compressImageToBlob = (file, maxWidth = 1600, quality = 0.7) => new Promis
 
 // Chiamata al Worker (ora usa FormData, stabile e a prova di bomba per il mobile)
 async function proxyFetch(filename, fileBlob) {
-    if(!accessToken) throw new Error("Utente non autenticato");
-    
-    const formData = new FormData();
-    formData.append("action", "upload");
-    formData.append("filename", filename);
-    formData.append("file", fileBlob);
+    if (!accessToken) throw new Error("Utente non autenticato");
 
     const res = await fetch(WORKER_URL, {
         method: "POST",
-        headers: { 
-            "Authorization": "Bearer " + accessToken
-            // IMPORTANTE: NON si imposta il Content-Type con FormData, il browser lo calcola in automatico!
+        headers: {
+            "Authorization": "Bearer " + accessToken,
+            "Content-Type": "application/octet-stream",
+            "X-Filename": filename
         },
-        body: formData
+        body: fileBlob
     });
-    
-    if(res.status === 401) { localStorage.removeItem("db_access"); location.reload(); }
-    
+
     const data = await res.json();
-    if(!data.success) throw new Error(data.error || "Errore sconosciuto dal proxy");
+
+    if (!data.success) {
+        throw new Error(data.error || "Errore proxy");
+    }
+
     return data;
 }
 
@@ -418,6 +415,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
