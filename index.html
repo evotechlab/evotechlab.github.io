@@ -223,28 +223,35 @@ const compressImageToBlob = (file, maxWidth = 1600, quality = 0.7) => new Promis
 
 
 // Chiamata al Worker (ora usa FormData, stabile e a prova di bomba per il mobile)
-// Sostituisci la tua proxyFetch con questa:
-async function proxyFetch(filename, fileBlob) {
-    if (!accessToken) throw new Error("Utente non autenticato");
+/* ================= UTILITY ================= */
+// Questa è praticamente identica alla tua vecchia dropboxFetch!
+async function proxyFetch(filename, fileOrString, isJson = false) {
+    if(!accessToken) return { status: 401 };
 
-    const res = await fetch(WORKER_URL, {
+    // Passiamo le istruzioni nell'URL per non far arrabbiare il browser Android
+    const url = new URL(WORKER_URL);
+    url.searchParams.append("action", "upload");
+    url.searchParams.append("filename", filename);
+
+    const res = await fetch(url.toString(), {
         method: "POST",
-        headers: {
+        headers: { 
             "Authorization": "Bearer " + accessToken,
-            "Content-Type": "application/octet-stream",
-            "X-File-Name": filename // <-- CORRETTO QUI
+            "Content-Type": isJson ? "application/json" : "application/octet-stream"
         },
-        body: fileBlob
+        body: fileOrString // Passiamo il file crudo originale!
     });
-
-    const data = await res.json();
-
-    if (!data.success) {
-        throw new Error(data.error || "Errore proxy");
+    
+    if(res.status === 401) { localStorage.removeItem("db_access"); location.reload(); }
+    
+    if(!res.ok) {
+        const err = await res.text();
+        throw new Error(`Errore Server: ${err}`);
     }
-
-    return data;
+    
+    return await res.json();
 }
+
 
 /* ================= GESTIONE MULTI-SCATTO ================= */
 function handlePhoto(event) {
@@ -306,7 +313,6 @@ function renderPhotoGrid() {
 
 /* ================= UPLOAD TRAMITE CLOUDFLARE PROXY ================= */
 async function uploadData() {
-
     const op = document.getElementById('operatore').value.trim();
     const impRaw = document.getElementById('impianto').value.trim();
     const luogoRaw = document.getElementById('luogo').value.trim() || "ND";
@@ -336,22 +342,18 @@ async function uploadData() {
     const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
     const sessionFolder = `${dStr}_${tStr}_${s}_${safeOp}`;
 
-    const relativeTargetFolder =
-        `${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
+    const relativeTargetFolder = `${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
 
     const totalSteps = photoFilesQueue.length + 1;
     let currentStep = 0;
 
     try {
-
         const photoNames = photoFilesQueue.map(
-            (_, index) =>
-                `Foto_${String(index + 1).padStart(2, '0')}.jpg`
+            (_, index) => `Foto_${String(index + 1).padStart(2, '0')}.jpg`
         );
 
         // Upload JSON metadati
-        document.getElementById('loaderText').innerText =
-            "Salvataggio Metadati...";
+        document.getElementById('loaderText').innerText = "Salvataggio Metadati...";
 
         const reportData = {
             id_sessione: `${dStr}_${tStr}`,
@@ -365,49 +367,35 @@ async function uploadData() {
             foto_allegate: photoNames
         };
 
-        const jsonBlob = new Blob(
-            [JSON.stringify(reportData, null, 2)],
-            { type: "application/json" }
-        );
-
+        // Passiamo direttamente la stringa JSON e il flag isJson = true
         await proxyFetch(
             `${relativeTargetFolder}/Report_Metadati.json`,
-            jsonBlob
+            JSON.stringify(reportData, null, 2),
+            true
         );
 
         currentStep++;
-        progressFill.style.width =
-            `${(currentStep / totalSteps) * 100}%`;
+        progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 
         // Upload foto
         for (let i = 0; i < photoFilesQueue.length; i++) {
-
             document.getElementById('loaderText').innerText =
                 `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}...`;
 
-            // LA MAGIA È QUI: Invece di prendere il file grezzo, attendiamo la compressione!
-            const photoBlob = await compressImageToBlob(photoFilesQueue[i].file);
-
-            if (!photoBlob) {
-                throw new Error("Compressione fallita");
-            }
-
-            console.log("Blob size:", photoBlob.size); // Ora vedrai che peserà 300KB invece di 10MB!
-
+            // LA VERA MAGIA: Nessuna compressione, nessun blocco RAM.
+            // Passiamo il file grezzo direttamente al proxy come nel tuo codice originale.
             await proxyFetch(
                 `${relativeTargetFolder}/${photoNames[i]}`,
-                photoBlob
+                photoFilesQueue[i].file,
+                false
             );
 
             currentStep++;
-            progressFill.style.width =
-                `${(currentStep / totalSteps) * 100}%`;
+            progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
         }
 
         sessionUploadedPhotos += photoFilesQueue.length;
-        document.getElementById('photoCountText').innerText =
-            sessionUploadedPhotos;
-
+        document.getElementById('photoCountText').innerText = sessionUploadedPhotos;
         document.getElementById('sessionFeedback').style.display = "block";
 
         softResetCamera();
@@ -416,7 +404,8 @@ async function uploadData() {
     } catch (e) {
         console.error(e);
         loader.classList.add('hidden');
-        alert("Errore di connessione col server sicuro. Riprova.");
+        // Ora l'alert ci dirà ESATTAMENTE cosa si è rotto invece di un messaggio generico
+        alert("Errore tecnico: " + e.message);
     }
 }
 
@@ -449,6 +438,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
