@@ -305,13 +305,7 @@ function renderPhotoGrid() {
 
 /* ================= UPLOAD TRAMITE CLOUDFLARE PROXY ================= */
 async function uploadData() {
-      const photoBlob = await compressImageToBlob(photoFilesQueue[i].file);
 
-console.log("Blob size:", photoBlob ? photoBlob.size : "NULL");
-
-if (!photoBlob) {
-    throw new Error("Compressione fallita");
-}
     const op = document.getElementById('operatore').value.trim();
     const impRaw = document.getElementById('impianto').value.trim();
     const luogoRaw = document.getElementById('luogo').value.trim() || "ND";
@@ -320,7 +314,8 @@ if (!photoBlob) {
     const s = document.getElementById('stato').value;
 
     if(!op || !impRaw || !zRaw || !s || photoFilesQueue.length === 0) {
-        alert("Compila tutti i campi obbligatori e scatta almeno una foto."); return;
+        alert("Compila tutti i campi obbligatori e scatta almeno una foto.");
+        return;
     }
 
     const loader = document.getElementById('loaderOverlay');
@@ -328,70 +323,99 @@ if (!photoBlob) {
     loader.classList.remove('hidden');
     progressFill.style.width = "0%";
 
-    // Formattazione sicura per i nomi delle cartelle
     const safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
     const safeImp = impRaw.replace(/[^a-zA-Z0-9]/g, '_');
     const safeLuogo = luogoRaw.replace(/[^a-zA-Z0-9]/g, '_');
-    
-    // Costruiamo solo il PERCORSO RELATIVO. Il BASE_FOLDER è nascosto nel Worker.
+
     const impiantoFolder = `${safeImp}_${safeLuogo}_${potRaw}MW`;
     const zonaFolder = zRaw;
-    
+
     const now = new Date();
     const dStr = now.toISOString().split('T')[0];
     const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
     const sessionFolder = `${dStr}_${tStr}_${s}_${safeOp}`;
-    
-    // Il percorso non contiene più il BASE_FOLDER (verrà aggiunto dal server)
-    const relativeTargetFolder = `${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
-    
-    const totalSteps = photoFilesQueue.length + 1; // n foto + 1 JSON
+
+    const relativeTargetFolder =
+        `${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
+
+    const totalSteps = photoFilesQueue.length + 1;
     let currentStep = 0;
 
-try {
-        const photoNames = photoFilesQueue.map((_, index) => `Foto_${String(index + 1).padStart(2, '0')}.jpg`);
+    try {
 
-        // 1. Upload JSON dei Metadati
-        document.getElementById('loaderText').innerText = "Salvataggio Metadati...";
-        document.getElementById('loaderSubtext').innerText = "Creazione cartella di sessione...";
-        
-        const reportData = { 
-            id_sessione: `${dStr}_${tStr}`, operatore: op, impianto: impRaw, 
-            potenza_mw: potRaw, luogo: luogoRaw, zona: zRaw, stato: s, gps: gpsData, foto_allegate: photoNames
+        const photoNames = photoFilesQueue.map(
+            (_, index) =>
+                `Foto_${String(index + 1).padStart(2, '0')}.jpg`
+        );
+
+        // Upload JSON metadati
+        document.getElementById('loaderText').innerText =
+            "Salvataggio Metadati...";
+
+        const reportData = {
+            id_sessione: `${dStr}_${tStr}`,
+            operatore: op,
+            impianto: impRaw,
+            potenza_mw: potRaw,
+            luogo: luogoRaw,
+            zona: zRaw,
+            stato: s,
+            gps: gpsData,
+            foto_allegate: photoNames
         };
-        
-        // Convertiamo il JSON in un Blob binario leggero invece che Base64
-        const jsonString = JSON.stringify(reportData, null, 2);
-        const jsonBlob = new Blob([jsonString], { type: "application/json" });
-        await proxyFetch(`${relativeTargetFolder}/Report_Metadati.json`, jsonBlob);
-        
-        currentStep++;
-        progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 
-        // 2. Upload Ciclico delle Foto
-        for(let i=0; i<photoFilesQueue.length; i++) {
-            document.getElementById('loaderText').innerText = `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}...`;
-            document.getElementById('loaderSubtext').innerText = "Attendere prego, non chiudere la pagina";
-            
-            // Usiamo la nuova compressione in formato Blob
-            const photoBlob = await compressImageToBlob(photoFilesQueue[i].file);
-            await proxyFetch(`${relativeTargetFolder}/${photoNames[i]}`, photoBlob);
+        const jsonBlob = new Blob(
+            [JSON.stringify(reportData, null, 2)],
+            { type: "application/json" }
+        );
+
+        await proxyFetch(
+            `${relativeTargetFolder}/Report_Metadati.json`,
+            jsonBlob
+        );
+
+        currentStep++;
+        progressFill.style.width =
+            `${(currentStep / totalSteps) * 100}%`;
+
+        // Upload foto
+        for (let i = 0; i < photoFilesQueue.length; i++) {
+
+            document.getElementById('loaderText').innerText =
+                `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}...`;
+
+            const photoBlob =
+                await compressImageToBlob(photoFilesQueue[i].file);
+
+            if (!photoBlob) {
+                throw new Error("Compressione fallita");
+            }
+
+            console.log("Blob size:", photoBlob.size);
+
+            await proxyFetch(
+                `${relativeTargetFolder}/${photoNames[i]}`,
+                photoBlob
+            );
 
             currentStep++;
-            progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
+            progressFill.style.width =
+                `${(currentStep / totalSteps) * 100}%`;
         }
 
-        // Completato
         sessionUploadedPhotos += photoFilesQueue.length;
-        document.getElementById('photoCountText').innerText = sessionUploadedPhotos;
+        document.getElementById('photoCountText').innerText =
+            sessionUploadedPhotos;
+
         document.getElementById('sessionFeedback').style.display = "block";
+
         softResetCamera();
         loader.classList.add('hidden');
 
     } catch (e) {
         console.error(e);
         loader.classList.add('hidden');
-        alert("Errore di connessione col server sicuro. Alcune foto potrebbero non essere state caricate. Riprova.");
+        alert("Errore di connessione col server sicuro. Riprova.");
     }
 }
 
@@ -424,6 +448,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
