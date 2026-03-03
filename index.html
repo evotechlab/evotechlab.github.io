@@ -34,7 +34,6 @@
     #photoPlaceholder { padding: 10px 0; }
     #photoGrid { display: flex; gap: 12px; overflow-x: auto; padding: 10px 4px 10px 4px; scroll-behavior: smooth; }
     
-    /* Stile Singola Miniatura */
     .thumb-container { position: relative; flex-shrink: 0; width: 110px; height: 110px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 2px solid white; }
     .remove-btn { position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: 0.2s; }
@@ -113,7 +112,7 @@
         </div>
 
         <div id="sessionFeedback" class="session-info">
-            <i class="fa-solid fa-check-double"></i> Hai già inviato <span id="photoCountText">0</span> foto a questa cartella.
+            <i class="fa-solid fa-check-double"></i> Hai già inviato <span id="photoCountText">0</span> foto in questa sessione.
         </div>
 
         <div class="card">
@@ -161,7 +160,7 @@ const REDIRECT_URI = "https://evotechlab.github.io/fieldcam/";
 const BASE_FOLDER = "/FieldCam";
 
 let accessToken = localStorage.getItem("db_access");
-let photoFilesQueue = []; // Array per la coda delle foto
+let photoFilesQueue = []; 
 let gpsData = null;
 let sessionUploadedPhotos = 0;
 
@@ -198,7 +197,6 @@ function handlePhoto(event) {
     const files = event.target.files;
     if(!files || files.length === 0) return;
 
-    // Aggiunge tutte le foto selezionate/scattate all'array
     for(let file of files) {
         photoFilesQueue.push({
             id: Date.now() + Math.random().toString(36).substr(2, 5),
@@ -207,7 +205,6 @@ function handlePhoto(event) {
         });
     }
     
-    // Resetta l'input per permettere di scattare la stessa foto consecutivamente
     event.target.value = ""; 
 
     if (navigator.geolocation && !gpsData) {
@@ -249,7 +246,6 @@ function renderPhotoGrid() {
             </div>
         `).join('');
         
-        // Auto-scroll alla fine della galleria se si aggiungono nuove foto
         grid.scrollLeft = grid.scrollWidth;
     }
 }
@@ -258,6 +254,8 @@ function renderPhotoGrid() {
 async function uploadData() {
     const op = document.getElementById('operatore').value.trim();
     const impRaw = document.getElementById('impianto').value.trim();
+    const luogoRaw = document.getElementById('luogo').value.trim() || "ND";
+    const potRaw = document.getElementById('potenza').value.trim() || "0";
     const zRaw = document.getElementById('zona').value;
     const s = document.getElementById('stato').value;
 
@@ -270,35 +268,57 @@ async function uploadData() {
     loader.classList.remove('hidden');
     progressFill.style.width = "0%";
 
-    const impiantoFolder = impRaw.replace(/[^a-zA-Z0-9]/g, '_');
-    const targetFolder = `${BASE_FOLDER}/${impiantoFolder}/${zRaw}`;
-    const timestampBase = new Date().toISOString().replace(/[:.]/g, '-');
+    // Formattazione sicura per i nomi delle cartelle
+    const safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeImp = impRaw.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeLuogo = luogoRaw.replace(/[^a-zA-Z0-9]/g, '_');
+    
+    // Livello 1: Impianto_Città_Potenza
+    const impiantoFolder = `${safeImp}_${safeLuogo}_${potRaw}MW`;
+    
+    // Livello 2: Zona Impianto
+    const zonaFolder = zRaw;
+    
+    // Livello 3: Data_Ora_Stato_Operatore (Identificativo univoco della sessione d'invio)
+    const now = new Date();
+    const dStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // "HH-MM-SS"
+    const sessionFolder = `${dStr}_${tStr}_${s}_${safeOp}`;
+    
+    const targetFolder = `${BASE_FOLDER}/${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
+    
     const totalSteps = photoFilesQueue.length + 1; // n foto + 1 JSON
     let currentStep = 0;
 
     try {
-        // Generazione Nomi Foto
-        const photoNames = photoFilesQueue.map((_, index) => `${timestampBase}_${s}_${index + 1}.jpg`);
+        // Generazione Nomi Foto ordinati (Foto_01.jpg, Foto_02.jpg)
+        const photoNames = photoFilesQueue.map((_, index) => `Foto_${String(index + 1).padStart(2, '0')}.jpg`);
 
-        // 1. Upload JSON del Report
+        // 1. Upload JSON dei Metadati all'interno della cartella di sessione
         document.getElementById('loaderText').innerText = "Salvataggio Metadati...";
-        document.getElementById('loaderSubtext').innerText = "Creazione report in corso";
+        document.getElementById('loaderSubtext').innerText = "Creazione cartella di sessione...";
         
         const reportData = { 
-            id_report: timestampBase, operatore: op, impianto: impRaw, potenza_mw: document.getElementById('potenza').value, 
-            luogo: document.getElementById('luogo').value, zona: zRaw, stato: s, gps: gpsData, 
-            foto_allegate: photoNames // L'elenco delle foto legate a questo form
+            id_sessione: `${dStr}_${tStr}`, 
+            operatore: op, 
+            impianto: impRaw, 
+            potenza_mw: potRaw, 
+            luogo: luogoRaw, 
+            zona: zRaw, 
+            stato: s, 
+            gps: gpsData, 
+            foto_allegate: photoNames
         };
         
         await dropboxFetch("https://content.dropboxapi.com/2/files/upload", {
-            method: "POST", headers: { "Content-Type": "application/octet-stream", "Dropbox-API-Arg": JSON.stringify({ path: `${targetFolder}/${timestampBase}_${s}_Report.json`, mode: "add", autorename: true }) },
+            method: "POST", headers: { "Content-Type": "application/octet-stream", "Dropbox-API-Arg": JSON.stringify({ path: `${targetFolder}/Report_Metadati.json`, mode: "add", autorename: true }) },
             body: JSON.stringify(reportData, null, 2)
         });
         
         currentStep++;
         progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 
-        // 2. Upload Ciclico delle Foto
+        // 2. Upload Ciclico delle Foto nella stessa cartella
         for(let i=0; i<photoFilesQueue.length; i++) {
             document.getElementById('loaderText').innerText = `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}...`;
             document.getElementById('loaderSubtext').innerText = "Attendere prego, non chiudere la pagina";
@@ -356,6 +376,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
