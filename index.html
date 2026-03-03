@@ -198,8 +198,9 @@ async function handleRedirect() {
 }
 
 /* ================= UTILITY ================= */
-// Comprime e converte in Base64 direttamente sul dispositivo
-const compressImage = (file, maxWidth = 1600, quality = 0.7) => new Promise((resolve, reject) => {
+/* ================= UTILITY ================= */
+// Comprime l'immagine e restituisce un Blob Binario leggerissimo
+const compressImageToBlob = (file, maxWidth = 1600, quality = 0.7) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = event => {
@@ -209,48 +210,36 @@ const compressImage = (file, maxWidth = 1600, quality = 0.7) => new Promise((res
             const canvas = document.createElement('canvas');
             let width = img.width;
             let height = img.height;
-
-            // Ricalcola le dimensioni mantenendo le proporzioni
-            if (width > maxWidth) {
-                height = Math.round((height * maxWidth) / width);
-                width = maxWidth;
-            }
-
+            if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
             canvas.width = width;
             canvas.height = height;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Esporta in JPEG compresso e già in formato Base64
-            resolve(canvas.toDataURL('image/jpeg', quality));
+            // Esporta direttamente in formato binario
+            canvas.toBlob(blob => resolve(blob), 'image/jpeg', quality);
         };
         img.onerror = e => reject(e);
     };
     reader.onerror = e => reject(e);
 });
 
-// Chiamata universale al Worker
-async function proxyFetch(filename, base64Data) {
+// Chiamata al Worker (ora usa FormData, stabile e a prova di bomba per il mobile)
+async function proxyFetch(filename, fileBlob) {
     if(!accessToken) throw new Error("Utente non autenticato");
     
+    const formData = new FormData();
+    formData.append("action", "upload");
+    formData.append("filename", filename);
+    formData.append("file", fileBlob);
+
     const res = await fetch(WORKER_URL, {
         method: "POST",
         headers: { 
-            "Content-Type": "application/json",
             "Authorization": "Bearer " + accessToken
+            // IMPORTANTE: NON si imposta il Content-Type con FormData, il browser lo calcola in automatico!
         },
-        body: JSON.stringify({
-            action: "upload",
-            filename: filename,
-            fileContentBase64: base64Data
-        })
+        body: formData
     });
     
-    if(res.status === 401) { 
-        localStorage.removeItem("db_access"); 
-        location.reload(); 
-    }
+    if(res.status === 401) { localStorage.removeItem("db_access"); location.reload(); }
     
     const data = await res.json();
     if(!data.success) throw new Error(data.error || "Errore sconosciuto dal proxy");
@@ -353,7 +342,7 @@ async function uploadData() {
     const totalSteps = photoFilesQueue.length + 1; // n foto + 1 JSON
     let currentStep = 0;
 
-    try {
+try {
         const photoNames = photoFilesQueue.map((_, index) => `Foto_${String(index + 1).padStart(2, '0')}.jpg`);
 
         // 1. Upload JSON dei Metadati
@@ -361,22 +350,14 @@ async function uploadData() {
         document.getElementById('loaderSubtext').innerText = "Creazione cartella di sessione...";
         
         const reportData = { 
-            id_sessione: `${dStr}_${tStr}`, 
-            operatore: op, 
-            impianto: impRaw, 
-            potenza_mw: potRaw, 
-            luogo: luogoRaw, 
-            zona: zRaw, 
-            stato: s, 
-            gps: gpsData, 
-            foto_allegate: photoNames
+            id_sessione: `${dStr}_${tStr}`, operatore: op, impianto: impRaw, 
+            potenza_mw: potRaw, luogo: luogoRaw, zona: zRaw, stato: s, gps: gpsData, foto_allegate: photoNames
         };
         
-        // Convertiamo il JSON in Base64 per inviarlo uniformemente al Worker
+        // Convertiamo il JSON in un Blob binario leggero invece che Base64
         const jsonString = JSON.stringify(reportData, null, 2);
-        const jsonBase64 = "data:application/json;base64," + btoa(unescape(encodeURIComponent(jsonString)));
-        
-        await proxyFetch(`${relativeTargetFolder}/Report_Metadati.json`, jsonBase64);
+        const jsonBlob = new Blob([jsonString], { type: "application/json" });
+        await proxyFetch(`${relativeTargetFolder}/Report_Metadati.json`, jsonBlob);
         
         currentStep++;
         progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
@@ -386,9 +367,9 @@ async function uploadData() {
             document.getElementById('loaderText').innerText = `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}...`;
             document.getElementById('loaderSubtext').innerText = "Attendere prego, non chiudere la pagina";
             
-            // Convertiamo la foto binaria in Base64 prima di inviarla
-            const photoBase64 = await compressImage(photoFilesQueue[i].file);
-            await proxyFetch(`${relativeTargetFolder}/${photoNames[i]}`, photoBase64);
+            // Usiamo la nuova compressione in formato Blob
+            const photoBlob = await compressImageToBlob(photoFilesQueue[i].file);
+            await proxyFetch(`${relativeTargetFolder}/${photoNames[i]}`, photoBlob);
 
             currentStep++;
             progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
@@ -398,7 +379,6 @@ async function uploadData() {
         sessionUploadedPhotos += photoFilesQueue.length;
         document.getElementById('photoCountText').innerText = sessionUploadedPhotos;
         document.getElementById('sessionFeedback').style.display = "block";
-        
         softResetCamera();
         loader.classList.add('hidden');
 
@@ -438,6 +418,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
