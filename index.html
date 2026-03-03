@@ -384,8 +384,7 @@ async function uploadData() {
             document.getElementById('loaderText').innerText =
                 `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}...`;
 
-            const photoBlob =
-                await compressImageToBlob(photoFilesQueue[i].file);
+            const photoBlob = photoFilesQueue[i].file;
 
             if (!photoBlob) {
                 throw new Error("Compressione fallita");
@@ -448,6 +447,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
