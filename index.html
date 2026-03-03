@@ -198,12 +198,36 @@ async function handleRedirect() {
 }
 
 /* ================= UTILITY ================= */
-// Converte un File in Base64 per inviarlo al Worker
-const toBase64 = file => new Promise((resolve, reject) => {
+// Comprime e converte in Base64 direttamente sul dispositivo
+const compressImage = (file, maxWidth = 1600, quality = 0.7) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
+    reader.onload = event => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            // Ricalcola le dimensioni mantenendo le proporzioni
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Esporta in JPEG compresso e già in formato Base64
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = e => reject(e);
+    };
+    reader.onerror = e => reject(e);
 });
 
 // Chiamata universale al Worker
@@ -363,7 +387,7 @@ async function uploadData() {
             document.getElementById('loaderSubtext').innerText = "Attendere prego, non chiudere la pagina";
             
             // Convertiamo la foto binaria in Base64 prima di inviarla
-            const photoBase64 = await toBase64(photoFilesQueue[i].file);
+            const photoBase64 = await compressImage(photoFilesQueue[i].file);
             await proxyFetch(`${relativeTargetFolder}/${photoNames[i]}`, photoBase64);
 
             currentStep++;
@@ -414,6 +438,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
