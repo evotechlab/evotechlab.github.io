@@ -270,7 +270,8 @@ function renderPhotoGrid() {
         placeholder.classList.add('hidden');
         btnSubmit.disabled = false;
         counterSpan.innerText = photoFilesQueue.length;
-        document.getElementById('dropZone').style.borderColor = var(--primary);
+        // QUI LA CORREZIONE: Aggiunte le virgolette attorno a var(--primary)
+        document.getElementById('dropZone').style.borderColor = "var(--primary)";
         
         grid.innerHTML = photoFilesQueue.map(p => `
             <div class="thumb-container">
@@ -428,6 +429,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
