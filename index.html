@@ -2,179 +2,275 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0f172a">
-<title>FieldCam O&M - Mobile Client</title>
+<title>FieldCam O&M</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style>
-    *, *::before, *::after { box-sizing: border-box; }
+    :root { --primary: #0ea5e9; --primary-dark: #0284c7; --success: #10b981; --warning: #f59e0b; --bg: #f8fafc; --text: #0f172a; --card: #ffffff; }
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding-bottom: 100px; /* Spazio per la barra fissa */ }
     
-    :root { --primary: #0ea5e9; --success: #10b981; --bg: #f1f5f9; --text: #0f172a; --card: #ffffff; }
-    body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding-bottom: 30px; }
+    header { background: #0f172a; color: white; padding: 18px 20px; padding-top: max(18px, env(safe-area-inset-top)); text-align: center; font-size: 18px; font-weight: 700; position: sticky; top: 0; z-index: 50; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
     
-    header { background: #0f172a; color: white; padding: 18px 20px; text-align: center; font-size: 18px; font-weight: 700; position: sticky; top: 0; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-    
-    .container { padding: 16px; max-width: 600px; margin: 0 auto; }
-    .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 16px; }
+    .container { padding: 16px; max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; transition: all 0.3s ease; }
+    .card-title { font-size: 14px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; }
     
     .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; width: 100%; }
     .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
-    
     @media (max-width: 380px) { .form-grid-2 { grid-template-columns: 1fr; } }
 
-    label { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
-    input, select { padding: 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 16px; font-family: inherit; background: #f8fafc; width: 100%; transition: border 0.2s, background 0.2s; }
-    input:focus, select:focus { outline: none; border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+    label { font-size: 12px; font-weight: 700; color: #64748b; }
+    input, select { padding: 14px 16px; border-radius: 12px; border: 1px solid #cbd5e1; font-size: 16px; font-family: inherit; background: #f8fafc; width: 100%; transition: all 0.2s; color: #1e293b; font-weight: 500; appearance: none; }
+    input:focus, select:focus { outline: none; border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15); }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; background-size: 16px; }
+    input:disabled, select:disabled { background: #e2e8f0; color: #94a3b8; opacity: 0.7; }
     
-    /* Area Multi-Scatto */
-    .photo-area { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px; text-align: center; background: #f8fafc; margin-bottom: 16px; transition: border-color 0.2s; }
-    #photoPlaceholder { padding: 10px 0; }
-    #photoGrid { display: flex; gap: 12px; overflow-x: auto; padding: 10px 4px 10px 4px; scroll-behavior: smooth; }
-    
-    .thumb-container { position: relative; flex-shrink: 0; width: 110px; height: 110px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 2px solid white; }
-    .remove-btn { position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: 0.2s; }
-    .remove-btn:active { transform: scale(0.9); }
+    /* Toggle switch per Nuovo Cantiere */
+    .toggle-container { display: flex; align-items: center; justify-content: space-between; background: #f1f5f9; padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+    .toggle-btn { flex: 1; text-align: center; padding: 10px; font-size: 13px; font-weight: 600; color: #64748b; border-radius: 8px; transition: 0.2s; cursor: pointer; }
+    .toggle-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
+    /* Area Foto */
+    .photo-area { border: 2px dashed #cbd5e1; border-radius: 16px; padding: 24px 20px; text-align: center; background: #f8fafc; transition: all 0.2s; }
+    .photo-area.active { border-color: var(--primary); background: #f0f9ff; }
+    #photoGrid { display: flex; gap: 12px; overflow-x: auto; padding: 10px 4px; scroll-behavior: smooth; }
+    .thumb-container { position: relative; flex-shrink: 0; width: 100px; height: 100px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 2px solid white; }
+    .remove-btn { position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4); }
     input[type="file"] { display: none; }
     
     .btn { border: none; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: 700; width: 100%; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; }
-    .btn-camera { background: #334155; color: white; margin-bottom: 12px; }
-    .btn-camera:active { background: #1e293b; }
-    .btn-submit { background: var(--primary); color: white; font-size: 18px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); }
-    .btn-submit:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; }
-    .btn-reset { background: white; color: #ef4444; border: 1px solid #fca5a5; margin-top: 20px; font-size: 15px; }
+    .btn-camera { background: #1e293b; color: white; box-shadow: 0 4px 10px rgba(30, 41, 59, 0.2); margin-top: 16px; }
+    .btn-camera:active { transform: scale(0.98); background: #0f172a; }
     
-    .session-info { background: #dcfce7; color: #166534; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; text-align: center; margin-bottom: 16px; border: 1px solid #bbf7d0; display: none; }
-    .gps-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; background: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 20px; margin-top: 10px; font-weight: 600; }
+    /* Floating Action Bar (Invio) */
+    .fab-container { position: fixed; bottom: 0; left: 0; right: 0; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-top: 1px solid #e2e8f0; z-index: 40; display: flex; justify-content: center; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .fab-container.visible { transform: translateY(0); }
+    .btn-submit { background: var(--primary); color: white; font-size: 18px; border-radius: 100px; max-width: 600px; box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3); padding: 18px; }
+    .btn-submit:active { transform: scale(0.98); background: var(--primary-dark); }
+    
     .hidden { display: none !important; }
 
-    #loaderOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; text-align: center; padding: 20px; backdrop-filter: blur(4px); }
+    /* Loader & Toast */
+    #loaderOverlay { position: fixed; inset: 0; background: rgba(15,23,42,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 100; padding: 20px; backdrop-filter: blur(5px); }
     .spinner { border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin-bottom: 24px; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
-    .progress-bar { width: 100%; max-width: 300px; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; margin-top: 20px; overflow: hidden; }
+    .progress-bar { width: 100%; max-width: 300px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 20px; overflow: hidden; }
     .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s ease-out; }
+
+    #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #334155; color: white; padding: 14px 24px; border-radius: 100px; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 200; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.error { background: #ef4444; }
+    #toast.success { background: #10b981; }
 </style>
 </head>
 
 <body>
 
-<header><i class="fa-solid fa-helmet-safety"></i> FieldCam O&M</header>
+<header>
+    <div style="width: 24px;"></div>
+    <div><i class="fa-solid fa-helmet-safety text-blue-400"></i> FieldCam</div>
+    <button onclick="hardReset()" style="background:none; border:none; color:#cbd5e1; font-size:18px; cursor:pointer;"><i class="fa-solid fa-rotate-right"></i></button>
+</header>
+
+<div id="toast"><i class="fas fa-info-circle"></i> <span id="toastMsg">Messaggio</span></div>
 
 <div class="container">
     <div id="authCard" class="card" style="text-align: center; margin-top: 40px;">
-        <i class="fa-brands fa-dropbox" style="font-size: 56px; color: #0061FE; margin-bottom: 20px;"></i>
-        <h2 style="margin-top:0; color: #0f172a;">Autenticazione</h2>
-        <p style="color: #64748b; font-size: 14px; margin-bottom: 24px;">Connetti l'app al server centrale</p>
-        <button class="btn btn-submit" onclick="loginDropbox()"><i class="fa-solid fa-lock"></i> Login </button>
+        <i class="fa-brands fa-dropbox" style="font-size: 64px; color: #0061FE; margin-bottom: 20px;"></i>
+        <h2 style="margin-top:0; color: #0f172a;">FieldCam Access</h2>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 30px;">Connetti l'app al server centrale aziendale</p>
+        <button class="btn btn-submit" onclick="loginDropbox()"><i class="fa-solid fa-lock"></i> Login Sicuro</button>
     </div>
 
     <div id="appContent" class="hidden">
         
-        <div class="card" style="border-top: 4px solid var(--primary);">
-            <div class="form-group"><label>Nome Operatore</label><input id="operatore" type="text" placeholder="Es. Mario Rossi"></div>
-            <div class="form-group"><label>Nome Impianto / Cantiere</label><input id="impianto" type="text" placeholder="Es. FV Roma Sud"></div>
-            <div class="form-grid-2">
-                <div class="form-group"><label>Potenza (MW)</label><input id="potenza" type="number" step="0.1" placeholder="0.0"></div>
-                <div class="form-group"><label>Luogo / Città</label><input id="luogo" type="text" placeholder="Es. Roma"></div>
+        <div class="card border-t-4" style="border-top: 4px solid var(--primary);">
+            <div class="form-group mb-0">
+                <label><i class="fas fa-user text-blue-500 mr-1"></i> Nome Operatore</label>
+                <input id="operatore" type="text" placeholder="Es. Mario Rossi" onchange="saveOperator()">
             </div>
         </div>
 
-        <div class="card" style="border-top: 4px solid #f59e0b;">
+        <div class="card" style="border-top: 4px solid var(--warning);">
+            <h3 class="card-title"><i class="fas fa-map-marker-alt text-yellow-500"></i> Dati Cantiere</h3>
+            
+            <div class="toggle-container">
+                <div id="btnExisting" class="toggle-btn active" onclick="switchMode('existing')">Scegli Esistente</div>
+                <div id="btnNew" class="toggle-btn" onclick="switchMode('new')">Crea Nuovo</div>
+            </div>
+
+            <div id="sectionExisting">
+                <div class="form-group">
+                    <select id="cantiereEsistente" onchange="hapticFeedback()">
+                        <option value="" disabled selected>Caricamento cantieri in corso...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="sectionNew" class="hidden">
+                <div class="form-group"><label>Nome Impianto</label><input id="impianto" type="text" placeholder="Es. FV Roma Sud"></div>
+                <div class="form-grid-2">
+                    <div class="form-group"><label>Potenza (MW)</label><input id="potenza" type="number" step="0.1" placeholder="0.0"></div>
+                    <div class="form-group"><label>Luogo / Città</label><input id="luogo" type="text" placeholder="Es. Roma"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--success);">
+            <h3 class="card-title"><i class="fas fa-clipboard-list text-green-500"></i> Dettagli Intervento</h3>
             <div class="form-group">
-                <label>Fase / Stato di Lavoro (Livello 1)</label>
-                <select id="stato">
-                    <option value="" disabled selected>Seleziona stato lavoro...</option>
-                    <option value="01_ISPEZIONE">01 - PRIMA</option>
-                    <option value="02_INSTALLAZIONE">02 - DOPO</option>
+                <label>Fase di Lavoro (Livello 1)</label>
+                <select id="stato" onchange="hapticFeedback()">
+                    <option value="" disabled selected>Seleziona fase...</option>
+                    <option value="01_ISPEZIONE">01 - Ispezione Iniziale</option>
+                    <option value="02_INSTALLAZIONE">02 - Installazione</option>
+                    <option value="03_MANUTENZIONE">03 - Manutenzione</option>
+                    <option value="04_COLLAUDO">04 - Collaudo</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>Area di Intervento (Livello 2)</label>
-                <select id="zona">
-                    <option value="" disabled selected>Seleziona area dell'impianto...</option>
+                <select id="zona" onchange="hapticFeedback()">
+                    <option value="" disabled selected>Seleziona area...</option>
                     <option value="01_STAZIONE_METEO">01. Stazione Meteo</option>
                     <option value="02_MODULI_FV">02. Moduli FV</option>
                     <option value="03_INVERTER">03. Inverter</option>
-                    <option value="04_TRASFORMATORI_MT_BT_AUX">04. Trasformatori MT/BT/AUX</option>
-                    <option value="05_LOCALE_MT_BT_AUX">05. Locale MT/BT/AUX</option>
-                    <option value="06_UPS_BT_MT">06. UPS BT/MT</option>
-                    <option value="07_QUADRI_DI_CAMPO">07. Quadri di Campo</option>
-                    <option value="08_CABINA_DI_CONSEGNA">08. Cabina di Consegna</option>
+                    <option value="04_TRASFORMATORI">04. Trasformatori MT/BT</option>
+                    <option value="05_LOCALE_TECNICO">05. Locale Tecnico</option>
+                    <option value="06_UPS">06. UPS BT/MT</option>
+                    <option value="07_QUADRI">07. Quadri di Campo</option>
+                    <option value="08_CABINA">08. Cabina di Consegna</option>
                     <option value="09_STRINGHE">09. Stringhe</option>
-                    <option value="10_CABLAGGIO_CC">10. Cablaggio CC</option>
+                    <option value="10_CABLAGGIO">10. Cablaggio CC</option>
                     <option value="11_SITO_TERRENO">11. Sito / Terreno / Recinzioni</option>
-                    <option value="12_SISTEMA_DI_SICUREZZA">12. Sistema di Sicurezza / TVCC</option>
+                    <option value="12_SICUREZZA">12. Sistema di Sicurezza / TVCC</option>
                 </select>
             </div>
         </div>
 
-        <div id="sessionFeedback" class="session-info">
-            <i class="fa-solid fa-check-double"></i> Caricamento di <span id="photoCountText">0</span> foto effettuato.
-        </div>
-
         <div class="card">
+            <h3 class="card-title"><i class="fas fa-camera text-slate-500"></i> Acquisizione</h3>
             <div class="photo-area" id="dropZone">
                 <div id="photoPlaceholder">
-                    <i class="fa-solid fa-images" style="font-size: 40px; color: #94a3b8; margin-bottom: 12px;"></i>
-                    <p style="margin: 0; color: #64748b; font-size: 14px; font-weight: 500;">Inquadra e aggiungi le foto qui</p>
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 40px; color: #cbd5e1; margin-bottom: 12px;"></i>
+                    <p style="margin: 0; color: #64748b; font-size: 14px; font-weight: 500;">Nessuna foto in coda</p>
                 </div>
                 <div id="photoGrid" class="hidden"></div>
             </div>
             
             <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple onchange="handlePhoto(event)">
-            
-            <button class="btn btn-camera" onclick="document.getElementById('cameraInput').click()">
-                <i class="fa-solid fa-camera"></i> Apri Fotocamera
+            <button class="btn btn-camera" onclick="document.getElementById('cameraInput').click(); hapticFeedback();">
+                <i class="fa-solid fa-camera"></i> Fotocamera / Galleria
             </button>
             
-            <button id="submitBtn" class="btn btn-submit" onclick="uploadData()" disabled>
-                <i class="fa-solid fa-cloud-arrow-up"></i> Invia<span id="btnCounter"></span> Foto
-            </button>
-            
-            <div style="text-align: center;">
-                <div id="gpsStatus" class="hidden gps-badge"><i class="fa-solid fa-location-dot"></i> Coordinate GPS Acquisite</div>
+            <div style="text-align: center; margin-top: 12px;">
+                <div id="gpsStatus" class="hidden gps-badge"><i class="fa-solid fa-location-dot"></i> GPS OK</div>
             </div>
         </div>
-
-        <button class="btn btn-reset" onclick="hardReset()">
-            <i class="fa-solid fa-rotate-right"></i> Azzera Dati
-        </button>
-
     </div>
+</div>
+
+<div id="fabContainer" class="fab-container">
+    <button id="submitBtn" class="btn btn-submit" onclick="uploadData()">
+        <i class="fa-solid fa-paper-plane"></i> Invia <span id="btnCounter" style="margin:0 4px;">0</span> Foto
+    </button>
 </div>
 
 <div id="loaderOverlay" class="hidden">
     <div class="spinner"></div>
-    <h3 id="loaderText" style="margin-bottom: 5px; font-size: 20px;">Inizializzazione...</h3>
-    <p id="loaderSubtext" style="color: #94a3b8; font-size: 14px; margin-top: 0;">Non chiudere l'applicazione</p>
+    <h3 id="loaderText" style="margin-bottom: 5px; font-size: 20px; font-weight: 800;">Elaborazione...</h3>
+    <p id="loaderSubtext" style="color: #cbd5e1; font-size: 14px; margin-top: 0;">Mantenere l'app aperta</p>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
 </div>
 
 <script>
 /* ================= CONFIGURAZIONE ================= */
-const WORKER_URL = "https://xkj7fxk.sviluppo-49a.workers.dev"; // Il tuo proxy Cloudflare
+const WORKER_URL = "https://xkj7fxk.sviluppo-49a.workers.dev"; // Il tuo Worker
 
 let accessToken = localStorage.getItem("db_access");
 let photoFilesQueue = []; 
 let gpsData = null;
-let sessionUploadedPhotos = 0;
+let modeIsNew = false; // Flag per sapere se stiamo creando un cantiere nuovo
 
-/* ================= AUTENTICAZIONE ================= */
+/* ================= UTILITY UI ================= */
+function hapticFeedback() {
+    if (navigator.vibrate) navigator.vibrate(40);
+}
+
+function showToast(msg, type="success") {
+    const toast = document.getElementById('toast');
+    const icon = type === 'success' ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-triangle"></i>';
+    toast.innerHTML = `${icon} ${msg}`;
+    toast.className = type;
+    toast.classList.add('show');
+    hapticFeedback();
+    setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+// Salva e recupera l'operatore automaticamente
+function saveOperator() {
+    const name = document.getElementById('operatore').value;
+    localStorage.setItem('fieldcam_operator', name);
+}
+
+function loadSavedData() {
+    const savedOp = localStorage.getItem('fieldcam_operator');
+    if(savedOp) document.getElementById('operatore').value = savedOp;
+}
+
+/* ================= CORE API ================= */
+async function apiCall(action, payload = {}) {
+    const res = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({ action, ...payload })
+    });
+    if (res.status === 401) { logout(); throw new Error("Sessione scaduta"); }
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+}
+
+async function uploadFile(path, file, isJson = false) {
+    const url = new URL(WORKER_URL);
+    url.searchParams.append("action", "upload");
+    url.searchParams.append("filename", path);
+
+    const res = await fetch(url.toString(), {
+        method: "POST",
+        headers: { 
+            "Authorization": "Bearer " + accessToken,
+            "Content-Type": isJson ? "application/json" : "application/octet-stream"
+        },
+        body: file 
+    });
+    
+    if(res.status === 401) { logout(); throw new Error("Sessione scaduta"); }
+    if(!res.ok) throw new Error(`Errore Server: ${await res.text()}`);
+    return res.json();
+}
+
+/* ================= AUTENTICAZIONE E AVVIO ================= */
 async function loginDropbox() {
     try {
-        const res = await fetch(WORKER_URL, {
-            method: "POST", 
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "getAuthUrl" })
-        });
-        const data = await res.json();
+        const data = await apiCall("getAuthUrl");
         if(data.success && data.url) window.location.href = data.url;
-        else alert("Errore di comunicazione col proxy Cloudflare.");
-    } catch (e) { alert("Impossibile contattare il server proxy."); }
+    } catch (e) { showToast("Errore di connessione", "error"); }
+}
+
+function logout() {
+    localStorage.removeItem("db_access");
+    window.location.reload();
 }
 
 async function handleRedirect() {
@@ -183,42 +279,66 @@ async function handleRedirect() {
         const params = new URLSearchParams(hash.substring(1));
         const token = params.get("access_token");
         if (token) {
-            accessToken = token;
-            localStorage.setItem("db_access", accessToken);
+            localStorage.setItem("db_access", token);
             window.history.replaceState({}, document.title, window.location.pathname);
+            accessToken = token;
         }
     }
 }
 
-/* ================= PROXY FETCH ================= */
-async function proxyFetch(filename, fileOrString, isJson = false) {
-    if(!accessToken) return { status: 401 };
-
-    const url = new URL(WORKER_URL);
-    url.searchParams.append("action", "upload");
-    url.searchParams.append("filename", filename);
-
-    const res = await fetch(url.toString(), {
-        method: "POST",
-        headers: { 
-            "Authorization": "Bearer " + accessToken,
-            "Content-Type": isJson ? "application/json" : "application/octet-stream"
-        },
-        body: fileOrString 
-    });
-    
-    const responseText = await res.text();
-    if(res.status === 401 || responseText.includes("expired_access_token")) { 
-        localStorage.removeItem("db_access");
-        alert("La sessione è scaduta. Effettua nuovamente il login.");
-        location.reload(); 
-        throw new Error("Token scaduto");
+async function initApp() {
+    if(accessToken) {
+        document.getElementById("authCard").classList.add("hidden");
+        document.getElementById("appContent").classList.remove("hidden");
+        loadSavedData();
+        await fetchExistingSites();
     }
-    if(!res.ok) throw new Error(`Errore Server: ${responseText}`);
-    return JSON.parse(responseText);
 }
 
-/* ================= GESTIONE FOTO E UI ================= */
+/* ================= GESTIONE CANTIERI (AUTO-FILL) ================= */
+function switchMode(mode) {
+    hapticFeedback();
+    const btnEx = document.getElementById('btnExisting');
+    const btnNew = document.getElementById('btnNew');
+    const secEx = document.getElementById('sectionExisting');
+    const secNew = document.getElementById('sectionNew');
+    
+    if (mode === 'existing') {
+        modeIsNew = false;
+        btnEx.classList.add('active'); btnNew.classList.remove('active');
+        secEx.classList.remove('hidden'); secNew.classList.add('hidden');
+    } else {
+        modeIsNew = true;
+        btnNew.classList.add('active'); btnEx.classList.remove('active');
+        secNew.classList.remove('hidden'); secEx.classList.add('hidden');
+    }
+}
+
+async function fetchExistingSites() {
+    const select = document.getElementById('cantiereEsistente');
+    try {
+        const data = await apiCall("listFolder", { path: "" });
+        const folders = data.entries.filter(e => e['.tag'] === 'folder');
+        
+        select.innerHTML = '<option value="" disabled selected>Seleziona un cantiere esistente...</option>';
+        if (folders.length === 0) {
+            select.innerHTML = '<option value="" disabled>Nessun cantiere trovato. Creane uno nuovo.</option>';
+            switchMode('new');
+        } else {
+            folders.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f.name; // Usiamo direttamente il nome della cartella come valore!
+                opt.innerText = f.name.replace(/_/g, ' '); // Mostriamo un nome più pulito
+                select.appendChild(opt);
+            });
+        }
+    } catch(e) {
+        select.innerHTML = '<option value="" disabled>Errore nel caricamento. Creane uno nuovo.</option>';
+        switchMode('new');
+    }
+}
+
+/* ================= FOTOCAMERA E GRIGLIA ================= */
 function handlePhoto(event) {
     const files = event.target.files;
     if(!files || files.length === 0) return;
@@ -242,11 +362,11 @@ function handlePhoto(event) {
             err => { console.warn("GPS non disponibile"); }
         );
     }
-
     renderPhotoGrid();
 }
 
 function removePhoto(id) {
+    hapticFeedback();
     photoFilesQueue = photoFilesQueue.filter(p => p.id !== id);
     renderPhotoGrid();
 }
@@ -254,22 +374,21 @@ function removePhoto(id) {
 function renderPhotoGrid() {
     const grid = document.getElementById('photoGrid');
     const placeholder = document.getElementById('photoPlaceholder');
-    const btnSubmit = document.getElementById('submitBtn');
     const counterSpan = document.getElementById('btnCounter');
+    const fab = document.getElementById('fabContainer');
+    const dropZone = document.getElementById('dropZone');
 
     if(photoFilesQueue.length === 0) {
         grid.classList.add('hidden');
         placeholder.classList.remove('hidden');
-        btnSubmit.disabled = true;
-        counterSpan.innerText = "";
-        document.getElementById('dropZone').style.borderColor = "#cbd5e1";
+        dropZone.classList.remove('active');
+        fab.classList.remove('visible'); // Nasconde la barra in basso
     } else {
         grid.classList.remove('hidden');
         placeholder.classList.add('hidden');
-        btnSubmit.disabled = false;
+        dropZone.classList.add('active');
         counterSpan.innerText = photoFilesQueue.length;
-        // QUI LA CORREZIONE: Aggiunte le virgolette attorno a var(--primary)
-        document.getElementById('dropZone').style.borderColor = "var(--primary)";
+        fab.classList.add('visible'); // Mostra la barra in basso
         
         grid.innerHTML = photoFilesQueue.map(p => `
             <div class="thumb-container">
@@ -281,147 +400,123 @@ function renderPhotoGrid() {
     }
 }
 
-/* ================= MOTORE DI UPLOAD (NUOVA ALBERATURA) ================= */
+/* ================= MOTORE DI UPLOAD ================= */
 async function uploadData() {
-    // 1. Recupero dati dai form
+    hapticFeedback();
     const op = document.getElementById('operatore').value.trim();
-    const impRaw = document.getElementById('impianto').value.trim();
-    const luogoRaw = document.getElementById('luogo').value.trim() || "ND";
-    const potRaw = document.getElementById('potenza').value.trim() || "0";
+    const sRaw = document.getElementById('stato').value;
+    const zRaw = document.getElementById('zona').value;
     
-    const sRaw = document.getElementById('stato').value; // Livello 3
-    const zRaw = document.getElementById('zona').value;  // Livello 4
+    let impiantoFolder = "";
+    let isCreatingNewMaster = false;
+    let masterData = {};
 
     // Validazione base
-    if(!op || !impRaw || !zRaw || !sRaw || photoFilesQueue.length === 0) {
-        alert("Attenzione: Compila i campi Operatore, Impianto, Stato, Area e aggiungi almeno una foto.");
+    if(!op || !sRaw || !zRaw || photoFilesQueue.length === 0) {
+        showToast("Compila i campi essenziali e aggiungi foto.", "error");
         return;
     }
 
-    // 2. Preparazione UI Loader
+    // Definizione cartella Cantiere in base alla modalità
+    if (modeIsNew) {
+        const impRaw = document.getElementById('impianto').value.trim();
+        const potRaw = document.getElementById('potenza').value.trim() || "0";
+        const luogoRaw = document.getElementById('luogo').value.trim() || "ND";
+        if(!impRaw) { showToast("Inserisci il nome dell'impianto.", "error"); return; }
+        
+        const safeImp = impRaw.replace(/[^a-zA-Z0-9]/g, '_');
+        const safeLuogo = luogoRaw.replace(/[^a-zA-Z0-9]/g, '_');
+        impiantoFolder = `${safeImp}_${safeLuogo}_${potRaw}MW`;
+        
+        isCreatingNewMaster = true;
+        masterData = { operatore: op, impianto: impRaw, potenza: potRaw, luogo: luogoRaw };
+    } else {
+        impiantoFolder = document.getElementById('cantiereEsistente').value;
+        if(!impiantoFolder) { showToast("Seleziona un cantiere esistente.", "error"); return; }
+    }
+
+    const safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
+    const targetFolderPath = `${impiantoFolder}/${sRaw}/${zRaw}`;
+    
+    const now = new Date();
+    const dStr = now.toISOString().split('T')[0]; 
+    const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); 
+
+    // UI Loading
     const loader = document.getElementById('loaderOverlay');
     const progressFill = document.getElementById('progressFill');
     const loaderText = document.getElementById('loaderText');
     loader.classList.remove('hidden');
     progressFill.style.width = "0%";
 
-    // 3. Sanitizzazione e Creazione Alberatura Logica
-    const safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
-    const safeImp = impRaw.replace(/[^a-zA-Z0-9]/g, '_');
-    const safeLuogo = luogoRaw.replace(/[^a-zA-Z0-9]/g, '_');
-
-    // Root Cantiere (Livello 2)
-    const impiantoFolder = `${safeImp}_${safeLuogo}_${potRaw}MW`;
-    
-    // Path di destinazione finale delle foto (Livello 4)
-    const targetFolderPath = `${impiantoFolder}/${sRaw}/${zRaw}`;
-
-    // Timestamps per nomi file univoci
-    const now = new Date();
-    const dStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-
-    const totalSteps = photoFilesQueue.length + 2; // +2 per i due file JSON
+    const totalSteps = photoFilesQueue.length + (isCreatingNewMaster ? 2 : 1);
     let currentStep = 0;
 
     try {
-        // Generazione Nomi File Foto ("Parlanti")
         const photoPrefix = `${dStr}_${tStr}_${safeOp}`;
-        const photoNames = photoFilesQueue.map(
-            (_, index) => `${photoPrefix}_Foto_${String(index + 1).padStart(2, '0')}.jpg`
-        );
+        const photoNames = photoFilesQueue.map((_, i) => `${photoPrefix}_Foto_${String(i + 1).padStart(2, '0')}.jpg`);
 
-        // ==========================================
-        // STEP 1: UPLOAD DATI MASTER (DASHBOARD)
-        // Viene salvato nella Root del Cantiere
-        // ==========================================
-        loaderText.innerText = "Sincronizzazione Dashboard...";
-        const masterData = {
-            operatore: op,
-            impianto: impRaw,
-            potenza: potRaw,
-            luogo: luogoRaw,
-            ultimo_aggiornamento: now.toISOString()
-        };
-        await proxyFetch(`${impiantoFolder}/dati_cantiere.json`, JSON.stringify(masterData, null, 2), true);
-        
-        currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
-
-        // ==========================================
-        // STEP 2: UPLOAD REPORT DI SESSIONE
-        // Viene salvato insieme alle foto nell'Area
-        // ==========================================
-        loaderText.innerText = "Salvataggio Metadati Sessione...";
-        const sessionData = {
-            id_sessione: `${dStr}_${tStr}`,
-            operatore: op,
-            fase: sRaw,
-            area: zRaw,
-            data: dStr,
-            ora: tStr,
-            gps: gpsData,
-            foto_allegate: photoNames
-        };
-        await proxyFetch(`${targetFolderPath}/report_sessione_${dStr}_${tStr}.json`, JSON.stringify(sessionData, null, 2), true);
-        
-        currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
-
-        // ==========================================
-        // STEP 3: UPLOAD FOTO DIRETTE
-        // Nessuna sottocartella extra! Finiscono nell'Area.
-        // ==========================================
-        for (let i = 0; i < photoFilesQueue.length; i++) {
-            loaderText.innerText = `Caricamento Foto ${i + 1} di ${photoFilesQueue.length}`;
-            
-            await proxyFetch(
-                `${targetFolderPath}/${photoNames[i]}`,
-                photoFilesQueue[i].file,
-                false
-            );
-
+        // STEP 1: Dati Master (Solo se il cantiere è nuovo)
+        if (isCreatingNewMaster) {
+            loaderText.innerText = "Creazione Cantiere...";
+            masterData.ultimo_aggiornamento = now.toISOString();
+            await uploadFile(`${impiantoFolder}/dati_cantiere.json`, JSON.stringify(masterData, null, 2), true);
             currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
         }
 
-        // 4. Successo e Reset UI
-        sessionUploadedPhotos += photoFilesQueue.length;
-        document.getElementById('photoCountText').innerText = sessionUploadedPhotos;
-        document.getElementById('sessionFeedback').style.display = "block";
+        // STEP 2: Report Sessione
+        loaderText.innerText = "Salvataggio Sessione...";
+        const sessionData = {
+            id_sessione: `${dStr}_${tStr}`,
+            operatore: op, fase: sRaw, area: zRaw, data: dStr, ora: tStr, gps: gpsData, foto_allegate: photoNames
+        };
+        await uploadFile(`${targetFolderPath}/report_sessione_${dStr}_${tStr}.json`, JSON.stringify(sessionData, null, 2), true);
+        currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 
+        // STEP 3: Foto
+        for (let i = 0; i < photoFilesQueue.length; i++) {
+            loaderText.innerText = `Invio Foto ${i + 1} di ${photoFilesQueue.length}`;
+            await uploadFile(`${targetFolderPath}/${photoNames[i]}`, photoFilesQueue[i].file, false);
+            currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
+        }
+
+        // Reset
+        showToast("Caricamento completato con successo!");
         softResetCamera();
         loader.classList.add('hidden');
+        
+        // Se avevamo creato un cantiere nuovo, ricarichiamo la lista per includerlo
+        if(isCreatingNewMaster) await fetchExistingSites();
 
     } catch (e) {
-        console.error(e);
         loader.classList.add('hidden');
-        alert("Si è verificato un errore durante l'invio:\n" + e.message);
+        showToast("Errore di caricamento: Riprova.", "error");
     }
 }
 
 function softResetCamera() {
     photoFilesQueue = [];
     renderPhotoGrid();
-    document.getElementById('cameraInput').value = ""; // Resetta l'input nativo
+    document.getElementById('cameraInput').value = "";
 }
 
 function hardReset() {
-    if(!confirm("Vuoi azzerare il modulo per iniziare un nuovo cantiere?")) return;
-    document.querySelectorAll('input').forEach(i => i.value = "");
-    document.querySelectorAll('select').forEach(s => s.value = "");
-    sessionUploadedPhotos = 0;
-    document.getElementById('sessionFeedback').style.display = "none";
+    if(!confirm("Azzerare tutto? (Il nome operatore rimarrà salvato)")) return;
+    document.getElementById('impianto').value = "";
+    document.getElementById('potenza').value = "";
+    document.getElementById('luogo').value = "";
+    document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
     document.getElementById('gpsStatus').classList.add('hidden');
     gpsData = null;
     softResetCamera();
+    switchMode('existing');
     window.scrollTo(0,0);
 }
 
-/* ================= INIT ================= */
+/* ================= AVVIO ================= */
 (async () => {
     await handleRedirect();
-    if(accessToken) {
-        document.getElementById("authCard").classList.add("hidden");
-        document.getElementById("appContent").classList.remove("hidden");
-    }
+    initApp();
 })();
 </script>
 
