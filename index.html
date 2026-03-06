@@ -377,10 +377,10 @@ async function uploadData() {
     const luogoRaw = document.getElementById('luogo').value.trim() || "ND";
     const potRaw = document.getElementById('potenza').value.trim() || "0";
     const zRaw = document.getElementById('zona').value;
-    const s = document.getElementById('stato').value;
+    const sRaw = document.getElementById('stato').value;
 
-    if(!op || !impRaw || !zRaw || !s || photoFilesQueue.length === 0) {
-        showToast("Compila i campi e scatta almeno una foto.", "error");
+    if(!op || !impRaw || !zRaw || !sRaw || photoFilesQueue.length === 0) {
+        showToast("Compila i campi essenziali e scatta almeno una foto.", "error");
         return;
     }
 
@@ -393,50 +393,56 @@ async function uploadData() {
     const safeImp = impRaw.replace(/[^a-zA-Z0-9]/g, '_');
     const safeLuogo = luogoRaw.replace(/[^a-zA-Z0-9]/g, '_');
 
-    // LA TUA LOGICA DI ALBERATURA INIZIALE E FUNZIONANTE
+    // ========================================================
+    // IL FLUSSO LOGICO PERFETTO (Ripristinato)
+    // Livello 1: Cantiere | Livello 2: Stato | Livello 3: Area
+    // ========================================================
     const impiantoFolder = `${safeImp}_${safeLuogo}_${potRaw}MW`;
-    const zonaFolder = zRaw;
+    const targetFolderPath = `${impiantoFolder}/${sRaw}/${zRaw}`;
 
     const now = new Date();
     const dStr = now.toISOString().split('T')[0];
     const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-    const sessionFolder = `${dStr}_${tStr}_${s}_${safeOp}`;
 
-    const relativeTargetFolder = `${impiantoFolder}/${zonaFolder}/${sessionFolder}`;
-
-    const totalSteps = photoFilesQueue.length + 1;
+    const totalSteps = photoFilesQueue.length + 2; // +2 per i file JSON
     let currentStep = 0;
 
     try {
-        const photoNames = photoFilesQueue.map((_, index) => `Foto_${String(index + 1).padStart(2, '0')}.jpg`);
+        // Nomi foto puliti
+        const photoPrefix = `${dStr}_${tStr}_${safeOp}`;
+        const photoNames = photoFilesQueue.map((_, i) => `${photoPrefix}_Foto_${String(i + 1).padStart(2, '0')}.jpg`);
 
-        document.getElementById('loaderText').innerText = "Salvataggio Dati...";
-
-        const reportData = {
-            id_sessione: `${dStr}_${tStr}`, operatore: op, impianto: impRaw,
-            potenza_mw: potRaw, luogo: luogoRaw, zona: zRaw, stato: s,
-            gps: gpsData, foto_allegate: photoNames
+        // STEP 1: Dati Cantiere per la Dashboard (nella Root del cantiere)
+        document.getElementById('loaderText').innerText = "Sincronizzazione Dashboard...";
+        const masterData = { 
+            operatore: op, impianto: impRaw, potenza: potRaw, 
+            luogo: luogoRaw, ultimo_aggiornamento: now.toISOString() 
         };
+        await proxyFetch(`${impiantoFolder}/dati_cantiere.json`, JSON.stringify(masterData, null, 2), true);
+        currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 
-        await proxyFetch(`${relativeTargetFolder}/Report_Metadati.json`, JSON.stringify(reportData, null, 2), true);
+        // STEP 2: Report di Sessione (nella cartella finale)
+        document.getElementById('loaderText').innerText = "Salvataggio Sessione...";
+        const sessionData = {
+            id_sessione: `${dStr}_${tStr}`, operatore: op, impianto: impRaw,
+            zona: zRaw, stato: sRaw, gps: gpsData, foto_allegate: photoNames
+        };
+        await proxyFetch(`${targetFolderPath}/report_sessione_${dStr}_${tStr}.json`, JSON.stringify(sessionData, null, 2), true);
+        currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 
-        currentStep++;
-        progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
-
+        // STEP 3: Invio Foto
         for (let i = 0; i < photoFilesQueue.length; i++) {
             document.getElementById('loaderText').innerText = `Invio Foto ${i + 1} di ${photoFilesQueue.length}`;
-            await proxyFetch(`${relativeTargetFolder}/${photoNames[i]}`, photoFilesQueue[i].file, false);
-            
-            currentStep++;
-            progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
+            await proxyFetch(`${targetFolderPath}/${photoNames[i]}`, photoFilesQueue[i].file, false);
+            currentStep++; progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
         }
 
+        // Feedback finale
         sessionUploadedPhotos += photoFilesQueue.length;
         document.getElementById('photoCountText').innerText = sessionUploadedPhotos;
         document.getElementById('sessionFeedback').style.display = "flex";
         document.getElementById('sessionFeedback').classList.remove('hidden');
 
-        // NOVITA': Blocca/Collassa la UI della sessione
         if(!isSessionLocked) lockSessionUI();
 
         showToast("Caricamento completato!");
@@ -446,6 +452,7 @@ async function uploadData() {
     } catch (e) {
         loader.classList.add('hidden');
         showToast("Errore di rete. Riprova.", "error");
+        console.error(e);
     }
 }
 
@@ -485,6 +492,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
