@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#f8fafc">
 <title>FieldCam O&M</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,12 +16,13 @@
     
     /* Input Personalizzati */
     select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; background-size: 16px; }
-    input:focus, select:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15); }
+    input:focus, select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
     
     /* Miniature Foto */
-    .thumb-container { position: relative; flex-shrink: 0; width: 100px; height: 100px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 2px solid white; }
-    .remove-btn { position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .thumb-container { position: relative; flex-shrink: 0; width: 100px; height: 100px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+    .thumb-container img { width: 100%; height: 100%; object-fit: cover; border-radius: 11px; }
+    .remove-btn { position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: 0.2s; }
+    .remove-btn:active { transform: scale(0.9); }
     
     /* Toast Notifiche */
     #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1e293b; color: white; padding: 12px 24px; border-radius: 100px; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 200; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; width: max-content; max-width: 90%; }
@@ -29,8 +30,8 @@
     #toast.error { background: #ef4444; }
     #toast.success { background: #10b981; }
 
-    /* Loader */
-    .spinner { border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #0ea5e9; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+    /* Loader Allineato a Dashboard */
+    .spinner { border: 4px solid rgba(59, 130, 246, 0.2); border-top: 4px solid #3b82f6; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
     
     /* Animazione Collasso Sessione */
@@ -41,91 +42,94 @@
 
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col pb-8">
 
-<header class="bg-slate-900 text-white sticky top-0 z-40 shadow-md">
-    <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div class="w-8"></div> <h1 class="text-lg font-bold flex items-center tracking-wide">
-            <i class="fas fa-helmet-safety text-blue-400 mr-2"></i> FieldCam
-        </h1>
-        <button onclick="hardReset()" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white transition" aria-label="Azzera">
-            <i class="fa-solid fa-rotate-right"></i>
+<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center">
+            <div class="bg-blue-600 text-white p-2 rounded-lg mr-3 shadow-md">
+                <i class="fas fa-helmet-safety text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold text-slate-800 tracking-tight">FieldCam</h1>
+        </div>
+        <button onclick="hardReset()" class="text-slate-500 hover:text-red-600 transition p-2 rounded-lg hover:bg-red-50" title="Azzera Dati">
+            <i class="fas fa-rotate-right text-lg"></i>
         </button>
     </div>
 </header>
 
 <div id="toast"><i class="fas fa-info-circle"></i> <span id="toastMsg"></span></div>
 
-<div class="container mx-auto px-4 max-w-lg mt-6 flex flex-col gap-5">
+<div class="container mx-auto px-4 max-w-lg mt-6 flex flex-col gap-6">
     
-    <div id="authCard" class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center hidden">
+    <div id="authCard" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center hidden">
         <div class="bg-blue-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
             <i class="fa-brands fa-dropbox text-5xl text-blue-600"></i>
         </div>
         <h2 class="text-2xl font-bold text-slate-800 mb-2">Accesso FieldCam</h2>
-        <p class="text-sm text-slate-500 mb-8">Connetti il tuo account per sincronizzare le foto con il server.</p>
-        <button class="w-full bg-blue-600 text-white font-bold p-4 rounded-xl hover:bg-blue-700 active:scale-95 transition shadow-lg flex justify-center items-center" onclick="loginDropbox()">
-            <i class="fa-solid fa-lock mr-2"></i> Login Sicuro
+        <p class="text-sm text-slate-500 mb-8">Connetti il tuo account per sincronizzare le foto con il server centrale.</p>
+        <button class="w-full bg-blue-600 text-white font-bold p-4 rounded-xl hover:bg-blue-700 active:scale-95 transition shadow-md flex justify-center items-center" onclick="loginDropbox()">
+            <i class="fa-solid fa-shield-alt mr-2"></i> Accesso Sicuro
         </button>
     </div>
 
-    <div id="appContent" class="hidden flex flex-col gap-5">
+    <div id="appContent" class="hidden flex flex-col gap-6">
         
         <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden" id="cantiereCard">
-            <div id="sessionSummary" class="hidden bg-emerald-50 p-4 border-b border-emerald-100 flex items-center justify-between">
+            <div id="sessionSummary" class="hidden bg-blue-50/50 p-4 border-b border-blue-100 flex items-center justify-between">
                 <div class="flex items-start gap-3">
-                    <div class="bg-emerald-100 text-emerald-600 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                        <i class="fas fa-check"></i>
+                    <div class="bg-blue-100 text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+                        <i class="fas fa-industry"></i>
                     </div>
                     <div>
-                        <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Sessione Attiva</p>
+                        <p class="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-0.5">Sessione Attiva</p>
                         <p class="text-sm font-bold text-slate-800 leading-tight" id="summaryImpianto">FV Roma Sud (12MW)</p>
                         <p class="text-xs font-medium text-slate-500 mt-0.5"><i class="fas fa-user mr-1"></i> <span id="summaryOp">Mario Rossi</span></p>
                     </div>
                 </div>
-                <button onclick="unlockSessionUI()" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg active:bg-blue-100 transition">
+                <button onclick="unlockSessionUI()" class="text-xs font-bold text-blue-600 bg-white border border-blue-200 px-3 py-1.5 rounded-lg active:bg-blue-50 transition shadow-sm">
                     Modifica
                 </button>
             </div>
 
             <div id="cantiereForm" class="p-5 collapse-content">
-                <h3 class="text-sm font-extrabold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                    <i class="fas fa-map-marker-alt mr-1"></i> Dati Cantiere
-                </h3>
+                <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center border-b border-slate-100 pb-3">
+                    <i class="fas fa-clipboard-check text-blue-500 mr-2.5"></i> Dati Cantiere
+                </h2>
                 <div class="mb-4">
                     <label class="block text-xs font-bold text-slate-600 mb-1.5">Nome Operatore</label>
-                    <input id="operatore" type="text" placeholder="Es. Mario Rossi" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-medium">
+                    <input id="operatore" type="text" placeholder="Es. Mario Rossi" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium">
                 </div>
                 <div class="mb-4">
                     <label class="block text-xs font-bold text-slate-600 mb-1.5">Nome Impianto (Cartella)</label>
-                    <input id="impianto" type="text" placeholder="Es. FV Roma Sud" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-medium">
+                    <input id="impianto" type="text" placeholder="Es. FV Roma Sud" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-slate-600 mb-1.5">Potenza (MW)</label>
-                        <input id="potenza" type="number" step="0.1" placeholder="0.0" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-medium">
+                        <input id="potenza" type="number" step="0.1" placeholder="0.0" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-600 mb-1.5">Luogo / Città</label>
-                        <input id="luogo" type="text" placeholder="Es. Roma" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-medium">
+                        <input id="luogo" type="text" placeholder="Es. Roma" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium">
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <h3 class="text-sm font-extrabold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                <i class="fas fa-layer-group mr-1"></i> Dettagli Intervento
-            </h3>
+            <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center border-b border-slate-100 pb-3">
+                <i class="fas fa-layer-group text-blue-500 mr-2.5"></i> Dettagli Intervento
+            </h2>
             <div class="mb-4">
                 <label class="block text-xs font-bold text-slate-600 mb-1.5">Stato Elemento</label>
-                <select id="stato" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-medium">
+                <select id="stato" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:bg-white transition-colors">
                     <option value="" disabled selected>Seleziona stato...</option>
-                    <option value="01_STATO INIZIALE">01. Prima</option>
-                    <option value="02_MANUTENZIONE">02. Dopo</option>
+                    <option value="01 STATO DEI FATTI">01 Prima</option>
+                    <option value="02 MANUTENZIONE">02 Dopo</option>
                 </select>
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-600 mb-1.5">Zona Impianto (Sottocartella)</label>
-                <select id="zona" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 font-medium">
+                <select id="zona" class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:bg-white transition-colors">
                     <option value="" disabled selected>Seleziona zona...</option>
                     <option value="01_STAZIONE_METEO">01. Stazione Meteo</option>
                     <option value="02_MODULI_FV">02. Moduli FV</option>
@@ -145,31 +149,35 @@
 
         <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
             
-            <div id="sessionFeedback" class="hidden mb-4 bg-blue-50 border border-blue-100 p-3 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-blue-700">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Inviate <span id="photoCountText">0</span> foto finora
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center border-b border-slate-100 pb-3">
+                <i class="fas fa-camera text-blue-500 mr-2.5"></i> Acquisizione
+            </h2>
+
+            <div id="sessionFeedback" class="hidden mb-4 bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-emerald-700">
+                <i class="fa-solid fa-check-double"></i> Inviate <span id="photoCountText">0</span> foto finora
             </div>
 
             <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-xl p-5 text-center bg-slate-50 mb-4 transition">
                 <div id="photoPlaceholder" class="py-4">
-                    <i class="fa-solid fa-camera-retro text-4xl text-slate-300 mb-2"></i>
-                    <p class="text-sm font-semibold text-slate-500 m-0">Inquadra e aggiungi le foto</p>
+                    <i class="fa-regular fa-images text-4xl text-slate-300 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-500 m-0">Inquadra e aggiungi le foto</p>
                 </div>
                 <div id="photoGrid" class="hidden flex gap-3 overflow-x-auto pb-2 pt-1 scroll-smooth"></div>
             </div>
             
             <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple onchange="handlePhoto(event)" class="hidden">
             
-            <button class="w-full bg-slate-800 text-white font-bold p-4 rounded-xl hover:bg-slate-900 active:scale-95 transition flex justify-center items-center mb-3 shadow-md" onclick="document.getElementById('cameraInput').click()">
-                <i class="fa-solid fa-camera mr-2"></i> Fotocamera / Galleria
+            <button class="w-full bg-white border border-slate-300 text-slate-700 font-bold p-4 rounded-xl hover:bg-slate-50 active:scale-95 transition flex justify-center items-center mb-3 shadow-sm" onclick="document.getElementById('cameraInput').click()">
+                <i class="fa-solid fa-plus mr-2"></i> Aggiungi Fotografie
             </button>
             
-            <button id="submitBtn" class="w-full bg-blue-600 text-white font-bold p-4 rounded-xl hover:bg-blue-700 active:scale-95 transition flex justify-center items-center shadow-lg disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed" onclick="uploadData()" disabled>
-                <i class="fa-solid fa-paper-plane mr-2"></i> Invia <span id="btnCounter" class="mx-1"></span> Foto
+            <button id="submitBtn" class="w-full bg-blue-600 text-white font-bold p-4 rounded-xl hover:bg-blue-700 active:scale-95 transition flex justify-center items-center shadow-md disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed" onclick="uploadData()" disabled>
+                <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Invia <span id="btnCounter" class="mx-1"></span> Foto
             </button>
             
             <div class="text-center mt-3">
-                <div id="gpsStatus" class="hidden inline-flex items-center gap-1.5 text-[11px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-bold uppercase tracking-wide">
-                    <i class="fa-solid fa-location-dot"></i> GPS Acquisito
+                <div id="gpsStatus" class="hidden inline-flex items-center gap-1.5 text-[11px] bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1 rounded-full font-bold uppercase tracking-wide">
+                    <i class="fa-solid fa-location-dot"></i> GPS Rilevato
                 </div>
             </div>
         </div>
@@ -177,19 +185,19 @@
     </div>
 </div>
 
-<div id="loaderOverlay" class="fixed inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-white z-[100] hidden backdrop-blur-sm p-6 text-center">
+<div id="loaderOverlay" class="fixed inset-0 bg-white/90 flex flex-col items-center justify-center text-slate-800 z-[100] hidden backdrop-blur-sm p-6 text-center">
     <div class="spinner"></div>
     <h3 id="loaderText" class="text-xl font-bold mb-1">Elaborazione in corso...</h3>
-    <p id="loaderSubtext" class="text-slate-400 text-sm m-0">Non chiudere l'applicazione</p>
-    <div class="w-full max-w-[250px] h-2 bg-slate-700 rounded-full mt-6 overflow-hidden">
-        <div class="h-full bg-blue-500 w-0 transition-all duration-300 ease-out" id="progressFill"></div>
+    <p id="loaderSubtext" class="text-slate-500 text-sm m-0">Non chiudere l'applicazione</p>
+    <div class="w-full max-w-[250px] h-2 bg-slate-200 rounded-full mt-6 overflow-hidden">
+        <div class="h-full bg-blue-600 w-0 transition-all duration-300 ease-out" id="progressFill"></div>
     </div>
 </div>
 
 <script>
 /* ================= CONFIGURAZIONE ================= */
 // USA IL TUO WORKER ORIGINALE E FUNZIONANTE
-const WORKER_URL = "https://xkj7fxk.sviluppo-49a.workers.dev";
+const WORKER_URL = "https://dfd89ks.sviluppo-49a.workers.dev"; // Sostituisci con il tuo Worker di riferimento
 
 let accessToken = localStorage.getItem("db_access");
 let photoFilesQueue = []; 
@@ -209,13 +217,11 @@ function showToast(msg, type="success") {
     setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// Logica del "Collasso Intelligente" (Progressive Disclosure)
 function lockSessionUI() {
     isSessionLocked = true;
     const form = document.getElementById('cantiereForm');
     const summary = document.getElementById('sessionSummary');
     
-    // Popola i dati del riassunto
     const imp = document.getElementById('impianto').value.trim();
     const pot = document.getElementById('potenza').value.trim() || "0";
     const op = document.getElementById('operatore').value.trim();
@@ -223,12 +229,11 @@ function lockSessionUI() {
     document.getElementById('summaryImpianto').innerText = `${imp} (${pot}MW)`;
     document.getElementById('summaryOp').innerText = op;
 
-    // Esegue l'animazione di collasso
     form.classList.add('collapsed');
     setTimeout(() => {
         form.classList.add('hidden');
         summary.classList.remove('hidden');
-    }, 400); // attende la fine dell'animazione CSS
+    }, 400); 
 }
 
 function unlockSessionUI() {
@@ -238,11 +243,10 @@ function unlockSessionUI() {
     
     summary.classList.add('hidden');
     form.classList.remove('hidden');
-    // Piccolo delay per far scattare l'animazione di espansione
     setTimeout(() => form.classList.remove('collapsed'), 10);
 }
 
-/* ================= LA TUA LOGICA ORIGINALE (INTATTA) ================= */
+/* ================= LA TUA LOGICA ORIGINALE E FUNZIONANTE (INTATTA) ================= */
 
 async function loginDropbox() {
     try {
@@ -356,9 +360,8 @@ function renderPhotoGrid() {
         btnSubmit.disabled = false;
         counter.innerText = photoFilesQueue.length;
         
-        // Evidenzia visivamente che ci sono foto pronte
-        dropZone.style.borderColor = "#0ea5e9";
-        dropZone.style.backgroundColor = "#f0f9ff";
+        dropZone.style.borderColor = "#3b82f6";
+        dropZone.style.backgroundColor = "#eff6ff";
         
         grid.innerHTML = photoFilesQueue.map(p => `
             <div class="thumb-container">
@@ -404,11 +407,10 @@ async function uploadData() {
     const dStr = now.toISOString().split('T')[0];
     const tStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
 
-    const totalSteps = photoFilesQueue.length + 2; // +2 per i file JSON
+    const totalSteps = photoFilesQueue.length + 2; 
     let currentStep = 0;
 
     try {
-        // Nomi foto puliti
         const photoPrefix = `${dStr}_${tStr}_${safeOp}`;
         const photoNames = photoFilesQueue.map((_, i) => `${photoPrefix}_Foto_${String(i + 1).padStart(2, '0')}.jpg`);
 
@@ -474,7 +476,7 @@ function hardReset() {
     gpsData = null;
     
     softResetCamera();
-    unlockSessionUI(); // Riapre il blocco dati Cantiere
+    unlockSessionUI(); 
     window.scrollTo(0,0);
 }
 
@@ -492,6 +494,7 @@ function hardReset() {
 
 </body>
 </html>
+
 
 
 
