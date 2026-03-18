@@ -11,6 +11,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "io.github.evotechlab.twa",
-        "sha256_cert_fingerprints": ["E5:5F:6B:5D:0D:B2:D2:5B:34:7B:79:44:1C:80:BF:96:40:2A:FB:5E:E9:C0:C6:F5:4C:DD:6C:51:AD:B4:A9:4B"]
+        "sha256_cert_fingerprints": ["F0:A3:DE:53:F0:A5:0D:97:F0:97:B7:37:C5:9C:6F:DC:9F:49:C7:B5:B5:4B:D8:D7:55:E2:69:F6:DC:7C:A6:31"]
       }
     }]
